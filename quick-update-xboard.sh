@@ -158,7 +158,7 @@ echo ""
 echo "2. 安装 Composer 依赖..."
 if command -v composer &> /dev/null; then
     echo "使用系统 composer..."
-    composer install --no-dev --optimize-autoloader
+    composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
 else
     echo "使用 composer.phar..."
     if [ ! -f "composer.phar" ]; then
@@ -169,7 +169,7 @@ else
             exit 1
         fi
     fi
-    php composer.phar install --no-dev --optimize-autoloader
+    php composer.phar install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
 fi
 
 if [ $? -ne 0 ]; then
