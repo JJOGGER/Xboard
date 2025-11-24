@@ -33,3 +33,5 @@ bun.lockb
 compose.yaml
 .scribe
 scripts/run-local.ps1
+Tangchaopay.php
+tangchaopay.txt

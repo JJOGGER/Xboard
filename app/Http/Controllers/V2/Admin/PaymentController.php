@@ -40,7 +40,14 @@ class PaymentController extends Controller
     public function getPaymentForm(Request $request)
     {
         try {
-            $paymentService = new PaymentService($request->input('payment'), $request->input('id'));
+            $payment = $request->input('payment');
+            $id = $request->input('id');
+
+            if (!$payment) {
+                return $this->fail([400, '支付方式参数不能为空']);
+            }
+
+            $paymentService = new PaymentService($payment, $id);
             $form = $paymentService->form();
             
             // 处理 options 字段，确保格式正确
@@ -59,8 +66,20 @@ class PaymentController extends Controller
             }
             
             return $this->success(collect($form));
+        } catch (ApiException $e) {
+            Log::error('获取支付表单失败: ' . $e->getMessage(), [
+                'payment' => $request->input('payment'),
+                'id' => $request->input('id'),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->fail([400, $e->getMessage()]);
         } catch (\Exception $e) {
-            return $this->fail([400, '支付方式不存在或未启用']);
+            Log::error('获取支付表单异常: ' . $e->getMessage(), [
+                'payment' => $request->input('payment'),
+                'id' => $request->input('id'),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->fail([500, '支付方式不存在或未启用: ' . $e->getMessage()]);
         }
     }
 

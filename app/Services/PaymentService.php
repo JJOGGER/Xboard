@@ -24,15 +24,25 @@ class PaymentService
             return;
         }
 
+        // 初始化插件系统，确保插件已加载
+        $this->pluginManager->initializeEnabledPlugins();
+
+        $payment = null;
         if ($id) {
-            $payment = Payment::find($id)->toArray();
+            $paymentModel = Payment::find($id);
+            if ($paymentModel) {
+                $payment = $paymentModel->toArray();
+            }
         }
-        if ($uuid) {
-            $payment = Payment::where('uuid', $uuid)->first()->toArray();
+        if (!$payment && $uuid) {
+            $paymentModel = Payment::where('uuid', $uuid)->first();
+            if ($paymentModel) {
+                $payment = $paymentModel->toArray();
+            }
         }
 
         $this->config = [];
-        if (isset($payment)) {
+        if ($payment) {
             // 处理 config - 可能是字符串或数组
             $config = $payment['config'];
             if (is_string($config)) {
@@ -47,8 +57,13 @@ class PaymentService
             $this->config['id'] = $payment['id'];
             $this->config['uuid'] = $payment['uuid'];
             $this->config['notify_domain'] = $payment['notify_domain'] ?? '';
+            // 如果从数据库读取，method 应该从 payment 字段获取
+            if (isset($payment['payment'])) {
+                $this->method = $payment['payment'];
+            }
         }
 
+        // 获取可用的支付方式
         $paymentMethods = $this->getAvailablePaymentMethods();
         if (isset($paymentMethods[$this->method])) {
             $pluginCode = $paymentMethods[$this->method]['plugin_code'];
@@ -62,38 +77,37 @@ class PaymentService
             }
         }
 
-        $this->payment = new $this->class($this->config);
+        // 如果找不到插件，抛出异常
+        throw new ApiException('支付方式不存在或插件未启用: ' . $this->method);
     }
 
     public function notify($params)
     {
-        if (!$this->config['enable'])
-            throw new ApiException('gate is not enable');
+        if (!$this->payment) {
+            throw new ApiException('支付插件未初始化');
+        }
+        if (!isset($this->config['enable']) || !$this->config['enable']) {
+            throw new ApiException('支付方式未启用');
+        }
         return $this->payment->notify($params);
     }
 
     public function pay($order)
     {
-        $logFile = '/tmp/payment_service_debug.log';
-        file_put_contents($logFile, "=== PaymentService::pay() called ===\n", FILE_APPEND);
-        file_put_contents($logFile, "Method: {$this->method}\n", FILE_APPEND);
-        file_put_contents($logFile, "Config keys: " . implode(', ', array_keys($this->config)) . "\n", FILE_APPEND);
-        file_put_contents($logFile, "UUID: " . ($this->config['uuid'] ?? 'MISSING') . "\n", FILE_APPEND);
-        
-        // custom notify domain name
-        if (empty($this->config['uuid'])) {
-            file_put_contents($logFile, "ERROR: UUID is empty\n", FILE_APPEND);
-            throw new ApiException('Payment UUID is not set. Payment method may not be properly configured.');
+        if (!$this->payment) {
+            throw new ApiException('支付插件未初始化');
         }
         
+        if (!isset($this->config['uuid']) || empty($this->config['uuid'])) {
+            throw new ApiException('支付方式配置不完整，UUID未设置');
+        }
+
+        // custom notify domain name
         $notifyUrl = url("/api/v1/guest/payment/notify/{$this->method}/{$this->config['uuid']}");
-        if ($this->config['notify_domain']) {
+        if (!empty($this->config['notify_domain'])) {
             $parseUrl = parse_url($notifyUrl);
             $notifyUrl = $this->config['notify_domain'] . $parseUrl['path'];
         }
-
-        file_put_contents($logFile, "About to call plugin pay method\n", FILE_APPEND);
-        file_put_contents($logFile, "Plugin class: " . get_class($this->payment) . "\n", FILE_APPEND);
 
         return $this->payment->pay([
             'notify_url' => $notifyUrl,
@@ -101,20 +115,25 @@ class PaymentService
             'trade_no' => $order['trade_no'],
             'total_amount' => $order['total_amount'],
             'user_id' => $order['user_id'],
-            'stripe_token' => $order['stripe_token']
+            'stripe_token' => $order['stripe_token'] ?? null
         ]);
     }
 
     public function form()
     {
         if (!$this->payment) {
-            throw new ApiException('Payment method not found or not enabled');
+            throw new ApiException('支付插件未初始化');
         }
+
         $form = $this->payment->form();
+        if (!is_array($form)) {
+            throw new ApiException('支付插件 form() 方法返回格式错误');
+        }
+
         $result = [];
         foreach ($form as $key => $field) {
             $result[$key] = [
-                'type' => $field['type'],
+                'type' => $field['type'] ?? 'string',
                 'label' => $field['label'] ?? '',
                 'placeholder' => $field['placeholder'] ?? '',
                 'description' => $field['description'] ?? '',
