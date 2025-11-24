@@ -107,6 +107,9 @@ class PaymentService
 
     public function form()
     {
+        if (!$this->payment) {
+            throw new ApiException('Payment method not found or not enabled');
+        }
         $form = $this->payment->form();
         $result = [];
         foreach ($form as $key => $field) {
