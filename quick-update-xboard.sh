@@ -30,6 +30,10 @@ fi
 # 获取当前目录
 CURRENT_DIR=$(pwd)
 echo -e "${GREEN}✓ 当前目录: $CURRENT_DIR${NC}"
+
+# 检查 PHP 版本
+PHP_VERSION=$(php -v | head -n 1)
+echo -e "${GREEN}✓ PHP 版本: $PHP_VERSION${NC}"
 echo ""
 
 # 备份提示
@@ -143,58 +147,60 @@ if [ "$STASH_APPLY" = true ]; then
 fi
 
 echo ""
-echo -e "${BLUE}[步骤 3] 执行升级脚本${NC}"
+echo -e "${BLUE}[步骤 3] 清理并安装依赖${NC}"
 echo "----------------------------------------"
 
-if [ -f "update.sh" ]; then
-    echo "执行 update.sh..."
-    bash update.sh
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}✗ 升级脚本执行失败${NC}"
-        echo "请查看上面的错误信息"
-        exit 1
-    fi
-    
-    echo -e "${GREEN}✓ 升级脚本执行成功${NC}"
+echo "1. 删除旧的 vendor 和 composer.lock..."
+rm -rf vendor composer.lock 2>/dev/null
+echo -e "${GREEN}✓ 已删除${NC}"
+
+echo ""
+echo "2. 安装 Composer 依赖..."
+if command -v composer &> /dev/null; then
+    echo "使用系统 composer..."
+    composer install --no-dev --optimize-autoloader
 else
-    echo -e "${YELLOW}⚠ 未找到 update.sh，手动执行升级步骤${NC}"
-    
-    echo "1. 更新 Composer 依赖..."
-    rm -rf composer.lock composer.phar 2>/dev/null
-    wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar 2>/dev/null
-    
+    echo "使用 composer.phar..."
     if [ ! -f "composer.phar" ]; then
-        echo -e "${RED}✗ 无法下载 composer.phar${NC}"
-        exit 1
+        echo "下载 composer.phar..."
+        wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar 2>/dev/null
+        if [ ! -f "composer.phar" ]; then
+            echo -e "${RED}✗ 无法下载 composer.phar${NC}"
+            exit 1
+        fi
     fi
-    
-    php composer.phar update -vvv
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}✗ Composer 更新失败${NC}"
-        exit 1
-    fi
-    
-    echo ""
-    echo "2. 运行数据库迁移和更新命令..."
-    php artisan xboard:update
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}✗ 更新命令执行失败${NC}"
-        exit 1
-    fi
-    
-    echo ""
-    echo "3. 设置文件权限（aaPanel 环境）..."
-    if [ -f "/etc/init.d/bt" ]; then
-        chown -R www:www "$CURRENT_DIR"
-        echo -e "${GREEN}✓ 文件权限已设置${NC}"
-    fi
+    php composer.phar install --no-dev --optimize-autoloader
+fi
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ Composer 安装失败${NC}"
+    echo "请检查 PHP 版本和网络连接"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ 依赖安装成功${NC}"
+
+echo ""
+echo "3. 运行数据库迁移和更新命令..."
+php artisan xboard:update
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ 更新命令执行失败${NC}"
+    echo "请查看上面的错误信息"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ 数据库迁移完成${NC}"
+
+echo ""
+echo "4. 设置文件权限（aaPanel 环境）..."
+if [ -f "/etc/init.d/bt" ]; then
+    chown -R www:www "$CURRENT_DIR" 2>/dev/null
+    echo -e "${GREEN}✓ 文件权限已设置${NC}"
 fi
 
 echo ""
-echo -e "${BLUE}[步骤 4] 清除缓存${NC}"
+echo -e "${BLUE}[步骤 5] 清除缓存${NC}"
 echo "----------------------------------------"
 
 php artisan optimize:clear
@@ -207,7 +213,7 @@ else
 fi
 
 echo ""
-echo -e "${BLUE}[步骤 5] 检查服务${NC}"
+echo -e "${BLUE}[步骤 6] 检查服务${NC}"
 echo "----------------------------------------"
 
 # 检查 Nginx
