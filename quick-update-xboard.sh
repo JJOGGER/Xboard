@@ -147,38 +147,81 @@ if [ "$STASH_APPLY" = true ]; then
 fi
 
 echo ""
-echo -e "${BLUE}[步骤 3] 清理并安装依赖${NC}"
+echo -e "${BLUE}[步骤 3] 检查并安装依赖${NC}"
 echo "----------------------------------------"
 
-echo "1. 删除旧的 vendor 和 composer.lock..."
-rm -rf vendor composer.lock 2>/dev/null
-echo -e "${GREEN}✓ 已删除${NC}"
+# 检查是否需要重新安装依赖
+NEED_INSTALL=false
 
-echo ""
-echo "2. 安装 Composer 依赖..."
-if command -v composer &> /dev/null; then
-    echo "使用系统 composer..."
-    composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+if [ ! -d "vendor" ]; then
+    echo -e "${YELLOW}⚠ vendor 目录不存在，需要安装依赖${NC}"
+    NEED_INSTALL=true
+elif [ ! -f "composer.lock" ]; then
+    echo -e "${YELLOW}⚠ composer.lock 文件不存在，需要重新安装依赖${NC}"
+    NEED_INSTALL=true
 else
-    echo "使用 composer.phar..."
-    if [ ! -f "composer.phar" ]; then
-        echo "下载 composer.phar..."
-        wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar 2>/dev/null
+    # 检查 composer.json 是否有更新
+    if [ "composer.json" -nt "composer.lock" ]; then
+        echo -e "${YELLOW}⚠ composer.json 有更新，需要更新依赖${NC}"
+        NEED_INSTALL=true
+    else
+        echo -e "${GREEN}✓ 依赖已安装，检查是否需要更新...${NC}"
+        NEED_INSTALL=false
+    fi
+fi
+
+if [ "$NEED_INSTALL" = true ]; then
+    echo ""
+    echo "1. 清理旧的依赖..."
+    rm -rf vendor composer.lock 2>/dev/null
+    echo -e "${GREEN}✓ 已清理${NC}"
+
+    echo ""
+    echo "2. 安装 Composer 依赖..."
+    if command -v composer &> /dev/null; then
+        echo "使用系统 composer..."
+        composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+    else
+        echo "使用 composer.phar..."
         if [ ! -f "composer.phar" ]; then
-            echo -e "${RED}✗ 无法下载 composer.phar${NC}"
-            exit 1
+            echo "下载 composer.phar..."
+            wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar 2>/dev/null
+            if [ ! -f "composer.phar" ]; then
+                echo -e "${RED}✗ 无法下载 composer.phar${NC}"
+                exit 1
+            fi
+        fi
+        php composer.phar install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+    fi
+
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}✗ Composer 安装失败${NC}"
+        echo "请检查 PHP 版本和网络连接"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✓ 依赖安装成功${NC}"
+else
+    echo ""
+    echo "2. 更新 Composer 依赖..."
+    if command -v composer &> /dev/null; then
+        composer update --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+    else
+        php composer.phar update --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+    fi
+
+    if [ $? -ne 0 ]; then
+        echo -e "${YELLOW}⚠ Composer 更新失败，尝试重新安装...${NC}"
+        rm -rf vendor composer.lock 2>/dev/null
+        if command -v composer &> /dev/null; then
+            composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+        else
+            php composer.phar install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
         fi
     fi
-    php composer.phar install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
-fi
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}✗ Composer 安装失败${NC}"
-    echo "请检查 PHP 版本和网络连接"
-    exit 1
+    echo -e "${GREEN}✓ 依赖已更新${NC}"
 fi
-
-echo -e "${GREEN}✓ 依赖安装成功${NC}"
 
 echo ""
 echo "3. 运行数据库迁移和更新命令..."
@@ -200,7 +243,7 @@ if [ -f "/etc/init.d/bt" ]; then
 fi
 
 echo ""
-echo -e "${BLUE}[步骤 5] 清除缓存${NC}"
+echo -e "${BLUE}[步骤 4] 清除缓存${NC}"
 echo "----------------------------------------"
 
 php artisan optimize:clear
@@ -213,7 +256,7 @@ else
 fi
 
 echo ""
-echo -e "${BLUE}[步骤 6] 检查服务${NC}"
+echo -e "${BLUE}[步骤 5] 检查服务${NC}"
 echo "----------------------------------------"
 
 # 检查 Nginx
