@@ -32,6 +32,20 @@ class ServerService
     }
 
     /**
+     * 获取所有显示的服务器列表（游客可访问）
+     * @return array
+     */
+    public static function getDisplayServers(): array
+    {
+        $servers = Server::where('show', true)
+            ->orderBy('sort', 'ASC')
+            ->get()
+            ->append(['last_check_at', 'last_push_at', 'online', 'is_online', 'available_status', 'cache_key']);
+
+        return $servers->toArray();
+    }
+
+    /**
      * 获取指定用户可用的服务器列表
      * @param User $user
      * @return array
@@ -58,6 +72,22 @@ class ServerService
         })->toArray();
 
         return $servers;
+    }
+
+    /**
+     * 根据分组ID获取该分组的所有服务器列表
+     * @param int $groupId 分组ID
+     * @param User $user 用户对象（用于生成密码）
+     * @return array
+     */
+    public static function getServersByGroup(int $groupId): array
+    {
+        $servers = Server::whereJsonContains('group_ids', (string) $groupId)
+            ->where('show', true)
+            ->orderBy('sort', 'ASC')
+            ->get()
+            ->append(['last_check_at', 'last_push_at', 'online', 'is_online', 'available_status', 'cache_key', 'server_key']);
+        return $servers->toArray();
     }
 
     /**

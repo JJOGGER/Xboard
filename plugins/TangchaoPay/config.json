@@ -1,0 +1,9 @@
+{
+    "name": "TangchaoPay",
+    "code": "tangchao_pay",
+    "type": "payment",
+    "version": "1.0.0",
+    "description": "Tangchaoshop payment gateway",
+    "author": "XBoard Team"
+}
+

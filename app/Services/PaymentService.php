@@ -33,7 +33,16 @@ class PaymentService
 
         $this->config = [];
         if (isset($payment)) {
-            $this->config = is_string($payment['config']) ? json_decode($payment['config'], true) : $payment['config'];
+            // 处理 config - 可能是字符串或数组
+            $config = $payment['config'];
+            if (is_string($config)) {
+                $this->config = json_decode($config, true) ?: [];
+            } elseif (is_array($config)) {
+                $this->config = $config;
+            } else {
+                $this->config = [];
+            }
+            
             $this->config['enable'] = $payment['enable'];
             $this->config['id'] = $payment['id'];
             $this->config['uuid'] = $payment['uuid'];
@@ -65,12 +74,26 @@ class PaymentService
 
     public function pay($order)
     {
+        $logFile = '/tmp/payment_service_debug.log';
+        file_put_contents($logFile, "=== PaymentService::pay() called ===\n", FILE_APPEND);
+        file_put_contents($logFile, "Method: {$this->method}\n", FILE_APPEND);
+        file_put_contents($logFile, "Config keys: " . implode(', ', array_keys($this->config)) . "\n", FILE_APPEND);
+        file_put_contents($logFile, "UUID: " . ($this->config['uuid'] ?? 'MISSING') . "\n", FILE_APPEND);
+        
         // custom notify domain name
+        if (empty($this->config['uuid'])) {
+            file_put_contents($logFile, "ERROR: UUID is empty\n", FILE_APPEND);
+            throw new ApiException('Payment UUID is not set. Payment method may not be properly configured.');
+        }
+        
         $notifyUrl = url("/api/v1/guest/payment/notify/{$this->method}/{$this->config['uuid']}");
         if ($this->config['notify_domain']) {
             $parseUrl = parse_url($notifyUrl);
             $notifyUrl = $this->config['notify_domain'] . $parseUrl['path'];
         }
+
+        file_put_contents($logFile, "About to call plugin pay method\n", FILE_APPEND);
+        file_put_contents($logFile, "Plugin class: " . get_class($this->payment) . "\n", FILE_APPEND);
 
         return $this->payment->pay([
             'notify_url' => $notifyUrl,

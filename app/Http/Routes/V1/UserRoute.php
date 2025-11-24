@@ -60,6 +60,7 @@ class UserRoute
             $router->post('/ticket/withdraw', [TicketController::class, 'withdraw']);
             // Server
             $router->get('/server/fetch', [ServerController::class, 'fetch']);
+            $router->get('/server/fetchByGroup', [ServerController::class, 'fetchByGroup']);
             // Coupon
             $router->post('/coupon/check', [CouponController::class, 'check']);
             // Gift Card

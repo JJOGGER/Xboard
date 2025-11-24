@@ -1,7 +1,7 @@
 window.XBOARD_TRANSLATIONS = window.XBOARD_TRANSLATIONS || {};
 window.XBOARD_TRANSLATIONS['zh-CN'] = {
   "payment": {
-    "title": "支付配置😄",
+    "title": "支付配置",
     "description": "在这里可以配置支付方式，包括支付宝、微信等。",
     "table": {
       "columns": {

@@ -16,6 +16,7 @@ use App\Services\PaymentService;
 use App\Services\PlanService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -116,14 +117,32 @@ class OrderController extends Controller
 
     public function checkout(Request $request)
     {
-        $tradeNo = $request->input('trade_no');
-        $method = $request->input('method');
-        $order = Order::where('trade_no', $tradeNo)
-            ->where('user_id', $request->user()->id)
-            ->where('status', 0)
-            ->first();
-        if (!$order) {
-            return $this->fail([400, __('Order does not exist or has been paid')]);
+        $logFile = '/tmp/order_controller_debug.log';
+        file_put_contents($logFile, "=== Checkout method called ===\n", FILE_APPEND);
+        
+        try {
+            $tradeNo = $request->input('trade_no');
+            $method = $request->input('method');
+            file_put_contents($logFile, "Trade No: {$tradeNo}, Method: {$method}\n", FILE_APPEND);
+            
+            $user = $request->user();
+            file_put_contents($logFile, "User ID: " . ($user ? $user->id : 'NULL') . "\n", FILE_APPEND);
+            
+            Log::info('Checkout started', ['trade_no' => $tradeNo, 'method' => $method]);
+            $order = Order::where('trade_no', $tradeNo)
+                ->where('user_id', $user->id)
+                ->where('status', 0)
+                ->first();
+            file_put_contents($logFile, "Order found: " . ($order ? 'YES' : 'NO') . "\n", FILE_APPEND);
+            
+            if (!$order) {
+                Log::warning('Order not found', ['trade_no' => $tradeNo]);
+                return $this->fail([400, __('Order does not exist or has been paid')]);
+            }
+        } catch (\Throwable $e) {
+            file_put_contents($logFile, "ERROR in initial setup: " . $e->getMessage() . "\n", FILE_APPEND);
+            file_put_contents($logFile, "Trace: " . $e->getTraceAsString() . "\n", FILE_APPEND);
+            throw $e;
         }
         // free process
         if ($order->total_amount <= 0) {
@@ -147,16 +166,55 @@ class OrderController extends Controller
         $order->payment_id = $method;
         if (!$order->save())
             return $this->fail([400, __('Request failed, please try again later')]);
-        $result = $paymentService->pay([
-            'trade_no' => $tradeNo,
-            'total_amount' => isset($order->handling_amount) ? ($order->total_amount + $order->handling_amount) : $order->total_amount,
-            'user_id' => $order->user_id,
-            'stripe_token' => $request->input('token')
-        ]);
-        return response([
-            'type' => $result['type'],
-            'data' => $result['data']
-        ]);
+        
+        try {
+            $logFile = '/tmp/order_controller_debug.log';
+            file_put_contents($logFile, "=== OrderController::checkout() ===\n", FILE_APPEND);
+            file_put_contents($logFile, "Trade No: {$tradeNo}\n", FILE_APPEND);
+            file_put_contents($logFile, "Payment: {$payment->payment}\n", FILE_APPEND);
+            file_put_contents($logFile, "Payment ID: {$payment->id}\n", FILE_APPEND);
+            
+            Log::info('About to call payment service pay method', [
+                'payment' => $payment->payment,
+                'trade_no' => $tradeNo
+            ]);
+            
+            $paymentData = [
+                'trade_no' => $tradeNo,
+                'total_amount' => isset($order->handling_amount) ? ($order->total_amount + $order->handling_amount) : $order->total_amount,
+                'user_id' => $order->user_id,
+                'stripe_token' => $request->input('token')
+            ];
+            file_put_contents($logFile, "Payment data: " . json_encode($paymentData) . "\n", FILE_APPEND);
+            
+            $result = $paymentService->pay($paymentData);
+            Log::info('Payment service returned successfully', ['result' => $result]);
+            file_put_contents($logFile, "SUCCESS\n", FILE_APPEND);
+            return response([
+                'type' => $result['type'],
+                'data' => $result['data']
+            ]);
+        } catch (\Throwable $e) {
+            $errorMsg = $e->getMessage();
+            $errorTrace = $e->getTraceAsString();
+            $logData = [
+                'trade_no' => $tradeNo,
+                'error' => $errorMsg,
+                'trace' => $errorTrace
+            ];
+            if (isset($payment)) {
+                $logData['payment'] = $payment->payment;
+            }
+            Log::error('Payment checkout failed', $logData);
+            
+            $logFile = '/tmp/order_controller_debug.log';
+            file_put_contents($logFile, "ERROR: {$errorMsg}\n", FILE_APPEND);
+            file_put_contents($logFile, "TRACE: {$errorTrace}\n", FILE_APPEND);
+            // 输出到标准输出，便于 Docker 日志查看
+            error_log("PAYMENT_ERROR: " . $errorMsg);
+            error_log("PAYMENT_TRACE: " . $errorTrace);
+            return $this->fail([400, $errorMsg]);
+        }
     }
 
     public function check(Request $request)

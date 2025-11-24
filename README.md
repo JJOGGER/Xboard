@@ -98,3 +98,6 @@ Issues and Pull Requests are welcome to help improve the project.
 ## 📈 Star History
 
 [![Stargazers over time](https://starchart.cc/cedar2025/Xboard.svg)](https://starchart.cc/cedar2025/Xboard)
+docker compose build
+ docker compose up -d
+ docker compose exec -T web php artisan route:cache

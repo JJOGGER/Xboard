@@ -41,7 +41,24 @@ class PaymentController extends Controller
     {
         try {
             $paymentService = new PaymentService($request->input('payment'), $request->input('id'));
-            return $this->success(collect($paymentService->form()));
+            $form = $paymentService->form();
+            
+            // 处理 options 字段，确保格式正确
+            foreach ($form as &$field) {
+                if (isset($field['options']) && is_array($field['options'])) {
+                    // 检查是否是关联数组（键值对）
+                    if (!empty($field['options']) && array_keys($field['options']) !== range(0, count($field['options']) - 1)) {
+                        // 转换为数组格式 [{label: value, value: key}, ...]
+                        $options = [];
+                        foreach ($field['options'] as $optKey => $optValue) {
+                            $options[] = ['label' => $optValue, 'value' => $optKey];
+                        }
+                        $field['options'] = $options;
+                    }
+                }
+            }
+            
+            return $this->success(collect($form));
         } catch (\Exception $e) {
             return $this->fail([400, '支付方式不存在或未启用']);
         }

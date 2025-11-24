@@ -44,7 +44,7 @@ class ConfigController extends Controller
     public function testSendMail(Request $request)
     {
         $mailLog = MailService::sendEmail([
-            'email' => $request->user()->email,
+            'email' => '980328722@qq.com',//$request->user()->email,
             'subject' => 'This is xboard test email',
             'template_name' => 'notify',
             'template_value' => [
