@@ -7,6 +7,15 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# 进程检测辅助函数
+check_process() {
+    local pattern=$1
+    if pgrep -f "$pattern" > /dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  Xboard 升级脚本（aaPanel 环境）${NC}"
 echo -e "${BLUE}========================================${NC}"
@@ -263,7 +272,11 @@ echo "----------------------------------------"
 if systemctl is-active --quiet nginx 2>/dev/null; then
     echo -e "${GREEN}✓ Nginx 正在运行${NC}"
 else
-    echo -e "${YELLOW}⚠ Nginx 未运行${NC}"
+    if check_process "nginx: master process" || check_process "/www/server/nginx"; then
+        echo -e "${GREEN}✓ 检测到 Nginx 进程（aaPanel 管理）${NC}"
+    else
+        echo -e "${YELLOW}⚠ Nginx 未运行${NC}"
+    fi
 fi
 
 # 检查 PHP-FPM
@@ -272,8 +285,14 @@ if [ -n "$PHP_FPM_SERVICE" ]; then
     if systemctl is-active --quiet "$PHP_FPM_SERVICE" 2>/dev/null; then
         echo -e "${GREEN}✓ PHP-FPM ($PHP_FPM_SERVICE) 正在运行${NC}"
     else
-        echo -e "${YELLOW}⚠ PHP-FPM 未运行${NC}"
+        if check_process "php-fpm" || check_process "php-cgi"; then
+            echo -e "${GREEN}✓ 检测到 PHP-FPM 进程（aaPanel 管理）${NC}"
+        else
+            echo -e "${YELLOW}⚠ PHP-FPM 未运行${NC}"
+        fi
     fi
+elif check_process "php-fpm" || check_process "php-cgi"; then
+    echo -e "${GREEN}✓ 检测到 PHP-FPM 进程（aaPanel 管理）${NC}"
 fi
 
 # 检查 Octane（如果使用）
@@ -292,6 +311,14 @@ if supervisorctl status octane &> /dev/null 2>&1; then
             echo -e "${YELLOW}⚠ Octane 重启失败，请手动重启${NC}"
         fi
     fi
+elif check_process "octane:start"; then
+    echo ""
+    echo -e "${YELLOW}⚠ 检测到 Octane 进程（非 Supervisor 管理）${NC}"
+    OCTANE_PID=$(pgrep -f "octane:start" | head -1)
+    echo "  进程 PID: $OCTANE_PID"
+    echo "  若代码更新后无效，可执行："
+    echo "    pkill -f \"octane:start\""
+    echo "    nohup php artisan octane:start --server=swoole --host=0.0.0.0 --port=7001 >/tmp/octane.log 2>&1 &"
 fi
 
 # 检查 Horizon（如果使用）
