@@ -16,6 +16,10 @@ check_process() {
     return 1
 }
 
+# 确保脚本与诊断工具具有执行权限
+chmod 777 "$(basename "$0")" >/dev/null 2>&1
+[ -f "post-deploy-diagnose.sh" ] && chmod 777 post-deploy-diagnose.sh >/dev/null 2>&1
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  Xboard 升级脚本（aaPanel 环境）${NC}"
 echo -e "${BLUE}========================================${NC}"
@@ -44,6 +48,15 @@ echo -e "${GREEN}✓ 当前目录: $CURRENT_DIR${NC}"
 PHP_VERSION=$(php -v | head -n 1)
 echo -e "${GREEN}✓ PHP 版本: $PHP_VERSION${NC}"
 echo ""
+
+# 检查 fileinfo 扩展
+if php -m | grep -qi fileinfo; then
+    echo -e "${GREEN}✓ fileinfo 扩展已安装${NC}"
+else
+    echo -e "${RED}✗ 未检测到 fileinfo 扩展${NC}"
+    echo "请在 aaPanel > PHP 8.2 > 设置 > 安装扩展 中启用 fileinfo，并重启 PHP-FPM 后再次运行本脚本。"
+    exit 1
+fi
 
 # 备份提示
 echo -e "${YELLOW}⚠ 重要提示：${NC}"
@@ -295,32 +308,6 @@ elif check_process "php-fpm" || check_process "php-cgi"; then
     echo -e "${GREEN}✓ 检测到 PHP-FPM 进程（aaPanel 管理）${NC}"
 fi
 
-# 检查 Octane（如果使用）
-if supervisorctl status octane &> /dev/null 2>&1; then
-    echo ""
-    echo -e "${YELLOW}⚠ 检测到 Octane 服务${NC}"
-    echo "  请在 aaPanel 中重启 Octane："
-    echo "  App Store > Tools > Supervisor > Restart Octane"
-    echo ""
-    read -p "是否现在重启 Octane? (y/n): " RESTART_OCTANE
-    if [[ "$RESTART_OCTANE" =~ ^[Yy]$ ]]; then
-        supervisorctl restart octane
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✓ Octane 已重启${NC}"
-        else
-            echo -e "${YELLOW}⚠ Octane 重启失败，请手动重启${NC}"
-        fi
-    fi
-elif check_process "octane:start"; then
-    echo ""
-    echo -e "${YELLOW}⚠ 检测到 Octane 进程（非 Supervisor 管理）${NC}"
-    OCTANE_PID=$(pgrep -f "octane:start" | head -1)
-    echo "  进程 PID: $OCTANE_PID"
-    echo "  若代码更新后无效，可执行："
-    echo "    pkill -f \"octane:start\""
-    echo "    nohup php artisan octane:start --server=swoole --host=0.0.0.0 --port=7001 >/tmp/octane.log 2>&1 &"
-fi
-
 # 检查 Horizon（如果使用）
 if supervisorctl status xboard &> /dev/null 2>&1 || supervisorctl status horizon &> /dev/null 2>&1; then
     HORIZON_SERVICE=$(supervisorctl status 2>/dev/null | grep -E "xboard|horizon" | grep -oE "xboard|horizon" | head -1)
@@ -333,6 +320,31 @@ if supervisorctl status xboard &> /dev/null 2>&1 || supervisorctl status horizon
 fi
 
 echo ""
+echo -e "${BLUE}[步骤 6] 运行部署后自检${NC}"
+echo "----------------------------------------"
+if [ -f "post-deploy-diagnose.sh" ]; then
+    ./post-deploy-diagnose.sh
+else
+    echo -e "${YELLOW}⚠ 未找到 post-deploy-diagnose.sh，建议添加以便快速排查${NC}"
+fi
+
+echo ""
+echo -e "${BLUE}[步骤 7] 自动重启 Octane 并生成日志${NC}"
+echo "----------------------------------------"
+LOG_DIR="/var/log/xboard"
+mkdir -p "$LOG_DIR"
+if pkill -f "octane:start" >/dev/null 2>&1; then
+    echo "旧的 Octane 进程已停止"
+fi
+nohup php artisan octane:start --server=swoole --host=0.0.0.0 --port=7001 > "$LOG_DIR/octane.log" 2>&1 &
+sleep 3
+if check_process "octane:start"; then
+    echo -e "${GREEN}✓ Octane 已重启，日志路径：$LOG_DIR/octane.log${NC}"
+else
+    echo -e "${YELLOW}⚠ Octane 重启失败，请检查 $LOG_DIR/octane.log${NC}"
+fi
+
+echo ""
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}  升级完成！${NC}"
 echo -e "${BLUE}========================================${NC}"
@@ -340,9 +352,8 @@ echo ""
 
 echo -e "${YELLOW}后续操作：${NC}"
 echo "  1. 访问网站验证功能是否正常"
-echo "  2. 检查日志是否有错误："
-echo "     tail -f storage/logs/laravel.log"
-echo "  3. 如果使用 Octane，确认已重启"
+echo "  2. 查看 Laravel 日志：tail -f storage/logs/laravel.log"
+echo "  3. 查看 Octane 日志：tail -f $LOG_DIR/octane.log"
 echo "  4. 测试核心功能（登录、订阅等）"
 echo ""
 
