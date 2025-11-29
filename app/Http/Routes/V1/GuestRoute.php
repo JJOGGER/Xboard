@@ -12,9 +12,6 @@ class GuestRoute
 {
     public function map(Registrar $router)
     {
-        // 唐朝支付回调路由
-        $router->post('/payment/tangchao', [PaymentController::class, 'handleTangchaoPayNotify']);
-        
         $router->group([
             'prefix' => 'guest'
         ], function ($router) {
@@ -28,6 +25,8 @@ class GuestRoute
             $router->match(['get', 'post'], '/payment/notify/{method}/{uuid}', [PaymentController::class, 'notify']);
             // Comm
             $router->get('/comm/config', [CommController::class, 'config']);
+            // 唐朝支付回调路由
+            $router->post('/payment/tangchao', [PaymentController::class, 'handleTangchaoPayNotify']);
         });
     }
 }

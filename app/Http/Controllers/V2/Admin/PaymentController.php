@@ -29,7 +29,7 @@ class PaymentController extends Controller
         foreach ($payments as $k => $v) {
             // 唐朝支付使用固定路径
             if ($v->payment === 'TangchaoPay') {
-                $notifyUrl = url("/payment/tangchao");
+                $notifyUrl = url("/api/v1/guest/payment/tangchao");
             } else {
                 $notifyUrl = url("/api/v1/guest/payment/notify/{$v->payment}/{$v->uuid}");
             }
