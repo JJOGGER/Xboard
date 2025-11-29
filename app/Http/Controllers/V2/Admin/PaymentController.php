@@ -27,7 +27,12 @@ class PaymentController extends Controller
     {
         $payments = Payment::orderBy('sort', 'ASC')->get();
         foreach ($payments as $k => $v) {
-            $notifyUrl = url("/api/v1/guest/payment/notify/{$v->payment}/{$v->uuid}");
+            // 唐朝支付使用固定路径
+            if ($v->payment === 'TangchaoPay') {
+                $notifyUrl = url("/payment/tangchao");
+            } else {
+                $notifyUrl = url("/api/v1/guest/payment/notify/{$v->payment}/{$v->uuid}");
+            }
             if ($v->notify_domain) {
                 $parseUrl = parse_url($notifyUrl);
                 $notifyUrl = $v->notify_domain . $parseUrl['path'];
