@@ -78,38 +78,30 @@ class PaymentController extends Controller
                 return response('FAIL: PAYMENT CONFIG ERROR', 500);
             }
 
-            // 4. 初始化支付插件
-            $pluginManager = app(PluginManager::class);
-            $plugin = $pluginManager->getPaymentPlugin('TangchaoPay');
-            Log::info('[步骤4] 初始化支付插件成功');
-            
-            // 5. 设置配置
-            $config = $payment->config;
-            if (is_string($config)) {
-                $config = json_decode($config, true) ?: [];
-            }
-            $plugin->setConfig($config);
-            Log::info('[步骤5] 设置插件配置成功');
+            // 4. 使用 PaymentService 处理回调
+            Log::info('[步骤4] 初始化支付服务...');
+            $paymentService = new \App\Services\PaymentService('TangchaoPay', $payment->id);
+            Log::info('[步骤4] 支付服务初始化成功');
 
-            // 6. 处理通知（验证签名）
-            Log::info('[步骤6] 开始验证签名...');
-            $result = $plugin->notify($request->all());
+            // 5. 验证签名
+            Log::info('[步骤5] 开始验证签名...');
+            $result = $paymentService->notify($request->all());
             
-            Log::info('[步骤6] 签名验证结果', [
+            Log::info('[步骤5] 签名验证结果', [
                 'verify_success' => $result ? true : false,
                 'result' => $result
             ]);
             
-            // 7. 处理订单
+            // 6. 处理订单
             if ($result) {
-                Log::info('[步骤7] 开始处理订单', [
+                Log::info('[步骤6] 开始处理订单', [
                     'trade_no' => $result['trade_no'],
                     'callback_no' => $result['callback_no'] ?? ''
                 ]);
                 
                 $handleResult = $this->handle($result['trade_no'], $result['callback_no'] ?? '');
                 
-                Log::info('[步骤7] 订单处理完成', [
+                Log::info('[步骤6] 订单处理完成', [
                     'handle_result' => $handleResult,
                     'order_status' => Order::where('trade_no', $result['trade_no'])->first()?->status
                 ]);
@@ -118,7 +110,7 @@ class PaymentController extends Controller
                 return response('SUCCESS', 200);
             }
 
-            Log::error('[步骤6] 失败：支付验证失败', ['order_no' => $orderNo]);
+            Log::error('[步骤5] 失败：支付验证失败', ['order_no' => $orderNo]);
             Log::info('========== 唐朝支付回调失败 ==========');
             return response('FAIL: VERIFY FAILED', 400);
             
