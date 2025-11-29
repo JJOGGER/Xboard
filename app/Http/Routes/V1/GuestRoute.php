@@ -12,8 +12,8 @@ class GuestRoute
 {
     public function map(Registrar $router)
     {
-        // 唐朝支付回调路由（不在 guest 组内，路径更短）
-        $router->post('/payment/tangchao/notify', [PaymentController::class, 'handleTangchaoPayNotify']);
+        // 唐朝支付回调路由
+        $router->post('/payment/tangchao', [PaymentController::class, 'handleTangchaoPayNotify']);
         
         $router->group([
             'prefix' => 'guest'

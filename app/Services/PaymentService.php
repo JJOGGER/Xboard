@@ -100,7 +100,7 @@ class PaymentService
         
         // 对于唐朝支付，使用固定路径
         if ($this->method === 'TangchaoPay') {
-            $notifyUrl = url("/api/payment/tangchao/notify");
+            $notifyUrl = url("/payment/tangchao");
         } else {
             if (!isset($this->config['uuid']) || empty($this->config['uuid'])) {
                 throw new ApiException('支付方式配置不完整，UUID未设置');
