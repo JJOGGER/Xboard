@@ -98,12 +98,17 @@ class PaymentService
             throw new ApiException('支付插件未初始化');
         }
         
-        if (!isset($this->config['uuid']) || empty($this->config['uuid'])) {
-            throw new ApiException('支付方式配置不完整，UUID未设置');
+        // 对于唐朝支付，使用固定路径
+        if ($this->method === 'TangchaoPay') {
+            $notifyUrl = url("/api/v1/guest/payment/notify/TangchaoPay");
+        } else {
+            if (!isset($this->config['uuid']) || empty($this->config['uuid'])) {
+                throw new ApiException('支付方式配置不完整，UUID未设置');
+            }
+            $notifyUrl = url("/api/v1/guest/payment/notify/{$this->method}/{$this->config['uuid']}");
         }
 
-        // custom notify domain name
-        $notifyUrl = url("/api/v1/guest/payment/notify/{$this->method}/{$this->config['uuid']}");
+        // 自定义通知域名
         if (!empty($this->config['notify_domain'])) {
             $parseUrl = parse_url($notifyUrl);
             $notifyUrl = $this->config['notify_domain'] . $parseUrl['path'];

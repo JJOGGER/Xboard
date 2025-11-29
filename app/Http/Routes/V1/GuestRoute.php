@@ -22,6 +22,7 @@ class GuestRoute
             // Telegram
             $router->post('/telegram/webhook', [TelegramController::class, 'webhook']);
             // Payment
+            $router->post('/payment/notify/TangchaoPay', [PaymentController::class, 'handleTangchaoPayNotify']);
             $router->match(['get', 'post'], '/payment/notify/{method}/{uuid}', [PaymentController::class, 'notify']);
             // Comm
             $router->get('/comm/config', [CommController::class, 'config']);
