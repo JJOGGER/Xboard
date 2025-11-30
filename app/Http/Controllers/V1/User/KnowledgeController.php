@@ -52,9 +52,19 @@ class KnowledgeController extends Controller
 
     private function fetchList(Request $request)
     {
+        $category = $request->input('category'); // 分类参数
+        
         $builder = $this->buildKnowledgeQuery(['id', 'category', 'title', 'updated_at', 'body'])
             ->where('language', $request->input('language'))
             ->orderBy('sort', 'ASC');
+
+        // 如果指定了分类参数，按分类过滤
+        if ($category !== null && $category !== '') {
+            $builder->where('category', $category);
+        } else {
+            // 默认排除 site 分类
+            $builder->where('category', '!=', 'site');
+        }
 
         $keyword = $request->input('keyword');
         if ($keyword) {
