@@ -159,6 +159,24 @@ class OrderController extends Controller
         }
         // free process
         if ($order->total_amount <= 0) {
+            // 尝试从请求中获取 nonce 并更新订单的 device_id
+            $nonce = $request->header('X-Nonce') ?? $request->header('nonce');
+            if ($nonce) {
+                try {
+                    $deviceId = DeviceIdCrypto::decryptNonceToDeviceId($nonce);
+                    if ($deviceId && $deviceId !== $order->device_id) {
+                        $order->device_id = $deviceId;
+                        $order->save();
+                    }
+                } catch (\Exception $e) {
+                    // 忽略解密失败，继续处理订单
+                    Log::warning('Failed to decrypt nonce in checkout', [
+                        'trade_no' => $order->trade_no,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
             $orderService = new OrderService($order);
             if (!$orderService->paid($order->trade_no))
                 return $this->fail([400, '支付失败']);

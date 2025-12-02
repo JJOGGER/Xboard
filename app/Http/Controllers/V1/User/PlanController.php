@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PlanResource;
 use App\Models\Plan;
 use App\Models\User;
+use App\Services\DeviceIdCrypto;
 use App\Services\PlanService;
 use Illuminate\Http\Request;
 
@@ -22,7 +23,19 @@ class PlanController extends Controller
     {
         $user = User::find($request->user()->id);
         // 从 Header 或 body 中提取设备标识（优先使用 Header）
-        $deviceId = $request->header('X-Device-Id', $request->input('device_id'));
+        // 支持 X-Nonce 解密获取 device_id，也支持直接传递 X-Device-Id
+        $deviceId = null;
+        $nonce = $request->header('X-Nonce') ?? $request->header('nonce');
+        if ($nonce) {
+            try {
+                $deviceId = DeviceIdCrypto::decryptNonceToDeviceId($nonce);
+            } catch (\Exception $e) {
+                // 如果 nonce 解密失败，尝试其他方式获取 device_id
+                $deviceId = $request->header('X-Device-Id', $request->input('device_id'));
+            }
+        } else {
+            $deviceId = $request->header('X-Device-Id', $request->input('device_id'));
+        }
 
         if ($request->input('id')) {
             $plan = Plan::where('id', $request->input('id'))->first();
