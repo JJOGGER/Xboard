@@ -48,14 +48,17 @@ class OrderService
         Plan $plan,
         string $period,
         ?string $couponCode = null,
+        ?string $deviceId = null,
     ): Order {
         $userService = app(UserService::class);
         $planService = new PlanService($plan);
 
         $planService->validatePurchase($user, $period);
+        // 试用套餐的设备限制检查（基于套餐 tags 和 device_id）
+        $planService->validateTrialDeviceLimit($deviceId);
         HookManager::call('order.create.before', [$user, $plan, $period, $couponCode]);
 
-        return DB::transaction(function () use ($user, $plan, $period, $couponCode, $userService) {
+        return DB::transaction(function () use ($user, $plan, $period, $couponCode, $userService, $deviceId) {
             $newPeriod = PlanService::getPeriodKey($period);
 
             $order = new Order([
@@ -64,6 +67,7 @@ class OrderService
                 'period' => $newPeriod,
                 'trade_no' => Helper::generateOrderNo(),
                 'total_amount' => (int) (optional($plan->prices)[$newPeriod] * 100),
+                'device_id' => $deviceId,
             ]);
 
             $orderService = new self($order);
@@ -116,6 +120,19 @@ class OrderService
                 Plan::PERIOD_RESET_TRAFFIC => app(TrafficResetService::class)->performReset($this->user, TrafficResetLog::SOURCE_ORDER),
                 default => $this->buyByPeriod($order, $plan),
             };
+
+            // 如果是试用套餐且携带 device_id，则记录设备与套餐的绑定关系
+            if ($plan && $plan->isTrial() && !empty($order->device_id)) {
+                \App\Models\PlanTrialDevice::firstOrCreate(
+                    [
+                        'plan_id' => $plan->id,
+                        'device_id' => $order->device_id,
+                    ],
+                    [
+                        'order_id' => $order->id,
+                    ]
+                );
+            }
 
             $this->setSpeedLimit($plan->speed_limit);
             $this->setDeviceLimit($plan->device_limit);

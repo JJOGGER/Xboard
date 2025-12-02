@@ -350,4 +350,32 @@ class Plan extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    /**
+     * 判断当前套餐是否为试用套餐
+     *
+     * 约定：tags 中包含“试用”或 “trial” 关键字即视为试用套餐
+     */
+    public function isTrial(): bool
+    {
+        return self::hasTrialTag($this->tags ?? []);
+    }
+
+    /**
+     * 根据标签数组判断是否包含试用标记
+     *
+     * @param array|null $tags
+     * @return bool
+     */
+    public static function hasTrialTag(?array $tags): bool
+    {
+        if (empty($tags)) {
+            return false;
+        }
+
+        return collect($tags)
+            ->filter(fn($tag) => is_string($tag) && $tag !== '')
+            ->map(fn($tag) => mb_strtolower(trim($tag)))
+            ->contains(fn(string $tag) => in_array($tag, ['试用', 'trial'], true));
+    }
 }

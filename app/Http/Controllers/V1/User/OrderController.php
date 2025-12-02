@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1\User;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\OrderSave;
+use App\Services\DeviceIdCrypto;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\Payment;
@@ -73,15 +74,27 @@ class OrderController extends Controller
         }
 
         $plan = Plan::findOrFail($request->input('plan_id'));
-        $planService = new PlanService($plan);
 
-        $planService->validatePurchase($user, $request->input('period'));
+        // 仅对试用套餐强制要求 nonce 校验，非试用套餐不做设备校验
+        $deviceId = null;
+        if ($plan->isTrial()) {
+            $nonce = $request->header('X-Nonce') ?? $request->header('nonce');
+
+            if ($nonce === null || $nonce === '') {
+                // 试用套餐必须携带有效的 nonce，旧客户端不可购买试用
+                throw new ApiException(__('Trial plan requires device verification, please update your client'));
+            }
+
+            // 有 nonce 时必须能成功解密，否则视为无效
+            $deviceId = DeviceIdCrypto::decryptNonceToDeviceId($nonce);
+        }
 
         $order = OrderService::createFromRequest(
             $user,
             $plan,
             $request->input('period'),
-            $request->input('coupon_code')
+            $request->input('coupon_code'),
+            $deviceId
         );
 
         return $this->success($order->trade_no);

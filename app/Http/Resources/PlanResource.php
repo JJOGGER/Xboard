@@ -36,7 +36,11 @@ class PlanResource extends JsonResource
             'reset_traffic_method' => $this->resource['reset_traffic_method'],
             'sort' => $this->resource['sort'],
             'created_at' => $this->resource['created_at'],
-            'updated_at' => $this->resource['updated_at']
+            'updated_at' => $this->resource['updated_at'],
+            // 是否为试用套餐（基于 tags 判定）
+            'is_trial' => Plan::hasTrialTag($this->resource['tags'] ?? []),
+            // 当前设备是否已经领取过该试用套餐（由上游控制器设置）
+            'trial_used_by_device' => $this->resource['trial_used_by_device'] ?? false,
         ];
     }
 

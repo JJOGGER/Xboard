@@ -93,6 +93,29 @@ class PlanService
     }
 
     /**
+     * 检查指定设备是否已经领取过当前试用套餐
+     *
+     * 注意：这里只关注套餐 + 设备，不关心用户账号
+     */
+    public function validateTrialDeviceLimit(?string $deviceId): void
+    {
+        if (!$deviceId) {
+            return;
+        }
+
+        if (!$this->plan->isTrial()) {
+            return;
+        }
+
+        // 检查是否已存在该套餐与设备的绑定记录
+        if (\App\Models\PlanTrialDevice::where('plan_id', $this->plan->id)
+            ->where('device_id', $deviceId)
+            ->exists()) {
+            throw new ApiException(__('This device has already claimed this trial plan'));
+        }
+    }
+
+    /**
      * 智能转换周期格式为新版格式
      * 如果是新版格式直接返回，如果是旧版格式则转换为新版格式
      *

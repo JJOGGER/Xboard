@@ -42,7 +42,9 @@ class PlanController extends Controller
             if (!$plan) {
                 return $this->fail([400202, '该订阅不存在']);
             }
-            
+
+            $originalTags = $plan->tags ?? [];
+
             DB::beginTransaction();
             try {
                 if ($request->input('force_update')) {
@@ -54,6 +56,14 @@ class PlanController extends Controller
                     ]);
                 }
                 $plan->update($params);
+
+                // 如果原来是试用套餐，现在不再是试用套餐，则清除该套餐对应的试用设备绑定
+                $wasTrial = Plan::hasTrialTag($originalTags);
+                $isTrial = Plan::hasTrialTag($plan->tags ?? []);
+                if ($wasTrial && !$isTrial) {
+                    \App\Models\PlanTrialDevice::where('plan_id', $plan->id)->delete();
+                }
+
                 DB::commit();
                 return $this->success(true);
             } catch (\Exception $e) {
