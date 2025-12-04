@@ -76,6 +76,8 @@ class Kernel extends HttpKernel
         'staff' => \App\Http\Middleware\Staff::class,
         'log' => \App\Http\Middleware\RequestLog::class,
         'server' => \App\Http\Middleware\Server::class,
+        // Horizon 专用访问控制（使用 HORIZON_ACCESS_TOKEN）
+        'horizon' => \App\Http\Middleware\HorizonAuth::class,
         'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
         'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
     ];

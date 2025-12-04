@@ -74,7 +74,8 @@ return [
     |
     */
 
-    'middleware' => ['admin'],
+    // 使用自定义的 horizon 中间件，基于 HORIZON_ACCESS_TOKEN 做访问控制
+    'middleware' => ['horizon'],
 
     /*
     |--------------------------------------------------------------------------
