@@ -49,13 +49,73 @@ PHP_VERSION=$(php -v | head -n 1)
 echo -e "${GREEN}✓ PHP 版本: $PHP_VERSION${NC}"
 echo ""
 
-# 检查 fileinfo 扩展
-if php -m | grep -qi fileinfo; then
-    echo -e "${GREEN}✓ fileinfo 扩展已安装${NC}"
-else
-    echo -e "${RED}✗ 未检测到 fileinfo 扩展${NC}"
-    echo "请在 aaPanel > PHP 8.2 > 设置 > 安装扩展 中启用 fileinfo，并重启 PHP-FPM 后再次运行本脚本。"
-    exit 1
+# 检查并安装必需的 PHP 扩展
+check_and_install_php_ext() {
+    local ext=$1
+    local ext_name=$2
+    local package_name=${3:-$ext}  # 包名可能不同，如 dom 对应 xml
+    
+    # 检查扩展是否已加载
+    if php -m | grep -qi "^${ext}$"; then
+        echo -e "${GREEN}✓ ${ext_name} 扩展已安装${NC}"
+        return 0
+    fi
+    
+    # 对于 dom，检查 libxml（dom 通常包含在 xml 包中）
+    if [ "$ext" = "dom" ]; then
+        if php -m | grep -qi "libxml"; then
+            echo -e "${GREEN}✓ ${ext_name} 扩展已安装（通过 libxml）${NC}"
+            return 0
+        fi
+    fi
+    
+    echo -e "${YELLOW}⚠ 未检测到 ${ext_name} 扩展，尝试自动安装...${NC}"
+    
+    # 尝试通过 apt 安装
+    PHP_VER=$(php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;" 2>/dev/null || echo "8.2")
+    if command -v apt-get >/dev/null 2>&1; then
+        if apt-get install -y "php${PHP_VER}-${package_name}" >/dev/null 2>&1; then
+            # 安装后再次检查
+            if php -m | grep -qi "^${ext}$" || ([ "$ext" = "dom" ] && php -m | grep -qi "libxml"); then
+                echo -e "${GREEN}✓ ${ext_name} 扩展安装成功${NC}"
+                return 0
+            fi
+        fi
+    fi
+    
+    # 如果自动安装失败，给出提示
+    echo -e "${YELLOW}⚠ 自动安装失败，请在 aaPanel > PHP ${PHP_VER} > 设置 > 安装扩展 中手动安装 ${ext_name}${NC}"
+    echo -e "${YELLOW}   或运行: apt install php${PHP_VER}-${package_name} -y${NC}"
+    return 1
+}
+
+# 检查必需的扩展
+echo "检查 PHP 扩展..."
+MISSING_EXTS=0
+
+if ! check_and_install_php_ext "fileinfo" "fileinfo"; then
+    MISSING_EXTS=$((MISSING_EXTS + 1))
+fi
+
+if ! check_and_install_php_ext "curl" "curl"; then
+    MISSING_EXTS=$((MISSING_EXTS + 1))
+fi
+
+# dom 扩展通常包含在 xml 包中
+if ! check_and_install_php_ext "dom" "dom" "xml"; then
+    MISSING_EXTS=$((MISSING_EXTS + 1))
+fi
+
+if ! check_and_install_php_ext "redis" "redis"; then
+    echo -e "${YELLOW}⚠ Redis 扩展未安装，将使用 Predis（纯 PHP 实现）${NC}"
+fi
+
+if [ $MISSING_EXTS -gt 0 ]; then
+    echo ""
+    echo -e "${YELLOW}⚠ 检测到 $MISSING_EXTS 个缺失的扩展${NC}"
+    echo "脚本将继续运行，但可能会在 Composer 安装时使用 --ignore-platform-req 选项"
+    echo "建议安装缺失的扩展以获得最佳性能"
+    echo ""
 fi
 
 # 备份提示
@@ -227,13 +287,15 @@ if [ "$NEED_INSTALL" = true ]; then
     echo ""
     echo "2. 安装 Composer 依赖..."
     # 优先使用 composer.phar（最新版本），使用 php -d disable_functions= 绕过 putenv 被禁用的问题
-    if php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    # 忽略缺失的扩展要求（如果扩展未安装，Composer 仍可继续）
+    IGNORE_EXTS="--ignore-platform-req=ext-fileinfo --ignore-platform-req=ext-curl --ignore-platform-req=ext-dom"
+    if php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --optimize-autoloader --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
-    elif php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    elif php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
-    elif php ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    elif php ./composer.phar install --no-dev --optimize-autoloader --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
-    elif php ./composer.phar install --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    elif php ./composer.phar install --no-dev --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
     else
         COMPOSER_SUCCESS=false
@@ -256,13 +318,15 @@ else
     echo ""
     echo "2. 更新 Composer 依赖..."
     # 优先使用 composer.phar（最新版本）
-    if php -d disable_functions= -d allow_url_fopen=On ./composer.phar update --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    # 忽略缺失的扩展要求（如果扩展未安装，Composer 仍可继续）
+    IGNORE_EXTS="--ignore-platform-req=ext-fileinfo --ignore-platform-req=ext-curl --ignore-platform-req=ext-dom"
+    if php -d disable_functions= -d allow_url_fopen=On ./composer.phar update --no-dev --optimize-autoloader --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
-    elif php -d disable_functions= -d allow_url_fopen=On ./composer.phar update --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    elif php -d disable_functions= -d allow_url_fopen=On ./composer.phar update --no-dev --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
-    elif php ./composer.phar update --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    elif php ./composer.phar update --no-dev --optimize-autoloader --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
-    elif php ./composer.phar update --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+    elif php ./composer.phar update --no-dev --no-interaction $IGNORE_EXTS 2>&1; then
         COMPOSER_SUCCESS=true
     else
         COMPOSER_SUCCESS=false
@@ -271,9 +335,15 @@ else
     if [ "$COMPOSER_SUCCESS" != "true" ]; then
         echo -e "${YELLOW}⚠ Composer 更新失败，尝试重新安装...${NC}"
         rm -rf vendor composer.lock 2>/dev/null
-        if php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        # 重新定义 IGNORE_EXTS（确保变量存在）
+        IGNORE_EXTS="--ignore-platform-req=ext-fileinfo --ignore-platform-req=ext-curl --ignore-platform-req=ext-dom"
+        if php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --optimize-autoloader --no-interaction $IGNORE_EXTS 2>&1; then
             COMPOSER_SUCCESS=true
-        elif php ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        elif php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --no-interaction $IGNORE_EXTS 2>&1; then
+            COMPOSER_SUCCESS=true
+        elif php ./composer.phar install --no-dev --optimize-autoloader --no-interaction $IGNORE_EXTS 2>&1; then
+            COMPOSER_SUCCESS=true
+        elif php ./composer.phar install --no-dev --no-interaction $IGNORE_EXTS 2>&1; then
             COMPOSER_SUCCESS=true
         else
             COMPOSER_SUCCESS=false

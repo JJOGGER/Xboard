@@ -25,6 +25,7 @@
         "laravel/tinker": "^2.10",
         "linfo/linfo": "^4.0",
         "paragonie/sodium_compat": "^1.20",
+        "predis/predis": "^2.2",
         "php-curl-class/php-curl-class": "^8.6",
         "spatie/db-dumper": "^3.4",
         "stripe/stripe-php": "^7.36.1",
