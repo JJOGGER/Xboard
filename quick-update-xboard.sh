@@ -192,6 +192,32 @@ else
     fi
 fi
 
+# 确保使用最新版本的 composer.phar（优先使用项目目录下的，避免系统旧版本）
+echo ""
+echo "准备 Composer..."
+if [ ! -f "composer.phar" ]; then
+    echo "下载最新版 composer.phar..."
+    wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar 2>/dev/null || \
+    curl -L https://getcomposer.org/download/latest-stable/composer.phar -o composer.phar 2>/dev/null
+    if [ -f "composer.phar" ]; then
+        chmod +x composer.phar
+        echo -e "${GREEN}✓ composer.phar 下载成功${NC}"
+    else
+        echo -e "${RED}✗ 无法下载 composer.phar${NC}"
+        exit 1
+    fi
+else
+    echo "更新 composer.phar 到最新版本..."
+    php -d disable_functions= composer.phar self-update 2>&1 || \
+    wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar 2>/dev/null || \
+    curl -L https://getcomposer.org/download/latest-stable/composer.phar -o composer.phar 2>/dev/null
+    chmod +x composer.phar
+fi
+
+# 验证 composer.phar 版本
+COMPOSER_VERSION=$(php -d disable_functions= composer.phar --version 2>&1 | head -n 1 || echo "unknown")
+echo "Composer 版本: $COMPOSER_VERSION"
+
 if [ "$NEED_INSTALL" = true ]; then
     echo ""
     echo "1. 清理旧的依赖..."
@@ -200,25 +226,28 @@ if [ "$NEED_INSTALL" = true ]; then
 
     echo ""
     echo "2. 安装 Composer 依赖..."
-    if command -v composer &> /dev/null; then
-        echo "使用系统 composer..."
-        composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+    # 优先使用 composer.phar（最新版本），使用 php -d disable_functions= 绕过 putenv 被禁用的问题
+    if php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
+    elif php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
+    elif php ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
+    elif php ./composer.phar install --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
     else
-        echo "使用 composer.phar..."
-        if [ ! -f "composer.phar" ]; then
-            echo "下载 composer.phar..."
-            wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar 2>/dev/null
-            if [ ! -f "composer.phar" ]; then
-                echo -e "${RED}✗ 无法下载 composer.phar${NC}"
-                exit 1
-            fi
-        fi
-        php composer.phar install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+        COMPOSER_SUCCESS=false
     fi
 
-    if [ $? -ne 0 ]; then
+    if [ "$COMPOSER_SUCCESS" != "true" ]; then
         echo -e "${RED}✗ Composer 安装失败${NC}"
-        echo "请检查 PHP 版本和网络连接"
+        echo "提示：可能是 PHP putenv 函数被禁用，请在 aaPanel 中启用 putenv 函数"
+        exit 1
+    fi
+
+    # 验证 vendor/autoload.php 是否存在
+    if [ ! -f "vendor/autoload.php" ]; then
+        echo -e "${RED}✗ vendor/autoload.php 不存在！Composer install 可能未成功完成${NC}"
         exit 1
     fi
 
@@ -226,20 +255,35 @@ if [ "$NEED_INSTALL" = true ]; then
 else
     echo ""
     echo "2. 更新 Composer 依赖..."
-    if command -v composer &> /dev/null; then
-        composer update --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+    # 优先使用 composer.phar（最新版本）
+    if php -d disable_functions= -d allow_url_fopen=On ./composer.phar update --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
+    elif php -d disable_functions= -d allow_url_fopen=On ./composer.phar update --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
+    elif php ./composer.phar update --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
+    elif php ./composer.phar update --no-dev --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+        COMPOSER_SUCCESS=true
     else
-        php composer.phar update --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+        COMPOSER_SUCCESS=false
     fi
 
-    if [ $? -ne 0 ]; then
+    if [ "$COMPOSER_SUCCESS" != "true" ]; then
         echo -e "${YELLOW}⚠ Composer 更新失败，尝试重新安装...${NC}"
         rm -rf vendor composer.lock 2>/dev/null
-        if command -v composer &> /dev/null; then
-            composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+        if php -d disable_functions= -d allow_url_fopen=On ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+            COMPOSER_SUCCESS=true
+        elif php ./composer.phar install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-fileinfo 2>&1; then
+            COMPOSER_SUCCESS=true
         else
-            php composer.phar install --no-dev --optimize-autoloader --ignore-platform-req=ext-fileinfo
+            COMPOSER_SUCCESS=false
         fi
+    fi
+    
+    # 验证 vendor/autoload.php 是否存在
+    if [ ! -f "vendor/autoload.php" ]; then
+        echo -e "${RED}✗ vendor/autoload.php 不存在！请检查 Composer 错误信息${NC}"
+        exit 1
     fi
 
     echo -e "${GREEN}✓ 依赖已更新${NC}"
@@ -247,6 +291,14 @@ fi
 
 echo ""
 echo "3. 运行数据库迁移和更新命令..."
+
+# 确保 vendor/autoload.php 存在
+if [ ! -f "vendor/autoload.php" ]; then
+    echo -e "${RED}✗ vendor/autoload.php 不存在，无法执行 artisan 命令${NC}"
+    echo "请先确保 Composer 依赖安装成功"
+    exit 1
+fi
+
 php artisan xboard:update
 
 if [ $? -ne 0 ]; then
@@ -267,6 +319,12 @@ fi
 echo ""
 echo -e "${BLUE}[步骤 4] 清除缓存${NC}"
 echo "----------------------------------------"
+
+# 确保 vendor/autoload.php 存在
+if [ ! -f "vendor/autoload.php" ]; then
+    echo -e "${RED}✗ vendor/autoload.php 不存在，无法执行 artisan 命令${NC}"
+    exit 1
+fi
 
 php artisan optimize:clear
 

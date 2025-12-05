@@ -1,6 +1,12 @@
 services:
   web:
-    image: ghcr.io/cedar2025/xboard:new
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REPO_URL: https://github.com/JJOGGER/Xboard.git
+        BRANCH_NAME: master
+        CACHEBUST: ${CACHEBUST:-$(date +%s)}
     volumes:
       - ./.docker/.data/redis/:/data/
       - ./:/www/
@@ -12,7 +18,13 @@ services:
     command: php artisan octane:start --port=7001 --host=0.0.0.0
     restart: always
   horizon:
-    image: ghcr.io/cedar2025/xboard:new
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REPO_URL: https://github.com/JJOGGER/Xboard.git
+        BRANCH_NAME: master
+        CACHEBUST: ${CACHEBUST:-$(date +%s)}
     volumes:
       - ./.docker/.data/redis/:/data/
       - ./:/www/
