@@ -263,8 +263,29 @@ if command -v redis-cli >/dev/null 2>&1; then
         if redis-cli ping >/dev/null 2>&1; then
             echo -e "${GREEN}✓ Redis 服务已启动${NC}"
         else
-            echo -e "${YELLOW}⚠ Redis 服务启动失败，自动切换到 Predis（纯 PHP 实现）${NC}"
+            echo -e "${RED}✗ Redis 服务启动失败${NC}"
+            echo ""
+            echo -e "${YELLOW}重要提示：${NC}"
+            echo "  Predis 仍然需要 Redis 服务运行（只是不需要 phpredis 扩展）"
+            echo "  请先修复 Redis 服务，然后重新运行此脚本"
+            echo ""
+            echo "诊断步骤："
+            echo "  1. 查看 Redis 服务状态: systemctl status redis-server"
+            echo "  2. 查看 Redis 错误日志: journalctl -xeu redis-server.service"
+            echo "  3. 尝试手动启动: systemctl start redis-server"
+            echo ""
+            echo "如果 Redis 服务无法修复，可以运行修复脚本："
+            echo "  ./fix-redis.sh"
+            echo ""
+            echo -e "${YELLOW}⚠ 继续执行可能会失败，因为 Redis 服务未运行${NC}"
+            read -p "是否继续? (y/n): " CONTINUE_REDIS
+            if [[ ! "$CONTINUE_REDIS" =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
+            
+            # 即使继续，也修复配置
             if [ -f .env ]; then
+                # 设置 REDIS_CLIENT 为 predis
                 if ! grep -q "^REDIS_CLIENT=" .env; then
                     echo "REDIS_CLIENT=predis" >> .env
                     echo -e "${GREEN}✓ 已在 .env 中添加 REDIS_CLIENT=predis${NC}"
@@ -272,10 +293,30 @@ if command -v redis-cli >/dev/null 2>&1; then
                     sed -i 's/^REDIS_CLIENT=phpredis/REDIS_CLIENT=predis/' .env
                     echo -e "${GREEN}✓ 已更新 .env 中的 REDIS_CLIENT 为 predis${NC}"
                 fi
+                
+                # 修复 REDIS_HOST（如果是 Docker socket 路径，改为 127.0.0.1）
+                if grep -q "^REDIS_HOST=/data/redis.sock" .env || grep -q "^REDIS_HOST=/var/run/redis" .env; then
+                    sed -i 's|^REDIS_HOST=.*|REDIS_HOST=127.0.0.1|' .env
+                    echo -e "${GREEN}✓ 已修复 REDIS_HOST 为 127.0.0.1${NC}"
+                elif ! grep -q "^REDIS_HOST=" .env; then
+                    echo "REDIS_HOST=127.0.0.1" >> .env
+                    echo -e "${GREEN}✓ 已添加 REDIS_HOST=127.0.0.1${NC}"
+                fi
+                
+                # 修复 REDIS_PORT（如果是 0 或不存在，设置为 6379）
+                if grep -q "^REDIS_PORT=" .env; then
+                    REDIS_PORT=$(grep "^REDIS_PORT=" .env | cut -d'=' -f2)
+                    if [ "$REDIS_PORT" = "0" ] || [ -z "$REDIS_PORT" ]; then
+                        sed -i 's/^REDIS_PORT=.*/REDIS_PORT=6379/' .env
+                        echo -e "${GREEN}✓ 已修复 REDIS_PORT 为 6379${NC}"
+                    fi
+                else
+                    echo "REDIS_PORT=6379" >> .env
+                    echo -e "${GREEN}✓ 已添加 REDIS_PORT=6379${NC}"
+                fi
+                
                 # 清除配置缓存，使新配置生效
                 php artisan config:clear 2>/dev/null || true
-            else
-                echo -e "${YELLOW}⚠ .env 文件不存在，请手动添加: REDIS_CLIENT=predis${NC}"
             fi
         fi
     fi
@@ -286,6 +327,22 @@ else
             echo "REDIS_CLIENT=predis" >> .env
             echo -e "${GREEN}✓ 已在 .env 中添加 REDIS_CLIENT=predis${NC}"
         fi
+        
+        # 修复 REDIS_HOST
+        if grep -q "^REDIS_HOST=/data/redis.sock" .env || grep -q "^REDIS_HOST=/var/run/redis" .env; then
+            sed -i 's|^REDIS_HOST=.*|REDIS_HOST=127.0.0.1|' .env
+            echo -e "${GREEN}✓ 已修复 REDIS_HOST 为 127.0.0.1${NC}"
+        elif ! grep -q "^REDIS_HOST=" .env; then
+            echo "REDIS_HOST=127.0.0.1" >> .env
+            echo -e "${GREEN}✓ 已添加 REDIS_HOST=127.0.0.1${NC}"
+        fi
+        
+        # 确保 REDIS_PORT 正确
+        if ! grep -q "^REDIS_PORT=" .env; then
+            echo "REDIS_PORT=6379" >> .env
+            echo -e "${GREEN}✓ 已添加 REDIS_PORT=6379${NC}"
+        fi
+        
         php artisan config:clear 2>/dev/null || true
     fi
 fi

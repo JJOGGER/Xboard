@@ -19,7 +19,7 @@
 
     <title>{{$title}}</title>
     <!-- <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,400,400i,600,700"> -->
-    <script>window.routerBase = "/";</script>
+    <script>window.routerBase = "{{ config('app.api_domain') ? config('app.api_domain') : '/' }}";</script>
     <script>
         window.settings = {
             title: '{{$title}}',

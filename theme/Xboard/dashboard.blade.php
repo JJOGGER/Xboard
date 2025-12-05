@@ -11,7 +11,7 @@
 <body>
 
   <script>
-    window.routerBase = "{{ env('API_DOMAIN', '/') }}";
+    window.routerBase = "{{ config('app.api_domain') ? config('app.api_domain') : '/' }}";
     window.settings = {
       title: '{{$title}}',
       assets_path: '/theme/{{$theme}}/assets',

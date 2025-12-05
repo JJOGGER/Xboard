@@ -74,7 +74,7 @@ class ConfigController extends Controller
         $app_url = admin_setting('app_url');
         if (blank($app_url))
             return $this->fail([422, '请先设置站点网址']);
-        $hookUrl = $app_url . '/api/v1/guest/telegram/webhook?' . http_build_query([
+        $hookUrl = url('/api/v1/guest/telegram/webhook', [
             'access_token' => md5(admin_setting('telegram_bot_token', $request->input('telegram_bot_token')))
         ]);
         $telegramService = new TelegramService($request->input('telegram_bot_token'));

@@ -28,6 +28,13 @@ class RouteServiceProvider extends ServiceProvider
             resolve(\Illuminate\Routing\UrlGenerator::class)->forceScheme('https');
         }
 
+        // 如果配置了 API_DOMAIN，统一设置所有 URL 的基础地址
+        // 注意：这会影响所有使用 url() 和 route() 的地方
+        $apiDomain = config('app.api_domain');
+        if ($apiDomain) {
+            resolve(\Illuminate\Routing\UrlGenerator::class)->forceRootUrl($apiDomain);
+        }
+
         parent::boot();
     }
 

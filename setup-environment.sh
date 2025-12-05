@@ -152,6 +152,27 @@ else
                     sed -i 's/^REDIS_CLIENT=phpredis/REDIS_CLIENT=predis/' .env
                     echo -e "${GREEN}✓ 已更新 .env 中的 REDIS_CLIENT 为 predis${NC}"
                 fi
+                
+                # 修复 REDIS_HOST（如果是 Docker socket 路径，改为 127.0.0.1）
+                if grep -q "^REDIS_HOST=/data/redis.sock" .env || grep -q "^REDIS_HOST=/var/run/redis" .env; then
+                    sed -i 's|^REDIS_HOST=.*|REDIS_HOST=127.0.0.1|' .env
+                    echo -e "${GREEN}✓ 已修复 REDIS_HOST 为 127.0.0.1${NC}"
+                elif ! grep -q "^REDIS_HOST=" .env; then
+                    echo "REDIS_HOST=127.0.0.1" >> .env
+                    echo -e "${GREEN}✓ 已添加 REDIS_HOST=127.0.0.1${NC}"
+                fi
+                
+                # 修复 REDIS_PORT（如果是 0 或不存在，设置为 6379）
+                if grep -q "^REDIS_PORT=" .env; then
+                    REDIS_PORT=$(grep "^REDIS_PORT=" .env | cut -d'=' -f2)
+                    if [ "$REDIS_PORT" = "0" ] || [ -z "$REDIS_PORT" ]; then
+                        sed -i 's/^REDIS_PORT=.*/REDIS_PORT=6379/' .env
+                        echo -e "${GREEN}✓ 已修复 REDIS_PORT 为 6379${NC}"
+                    fi
+                else
+                    echo "REDIS_PORT=6379" >> .env
+                    echo -e "${GREEN}✓ 已添加 REDIS_PORT=6379${NC}"
+                fi
             fi
         fi
     fi

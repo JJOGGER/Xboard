@@ -41,6 +41,7 @@ if (!function_exists('admin_settings_batch')) {
     }
 }
 
+
 if (!function_exists('source_base_url')) {
     /**
      * 获取来源基础URL，优先Referer，其次Host

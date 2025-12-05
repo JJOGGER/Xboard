@@ -58,6 +58,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | API Domain
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used as the base URL for API requests from the frontend.
+    | If set, all API requests will be made to this domain instead of the
+    | current domain. Set this in your ".env" file as API_DOMAIN.
+    |
+    */
+
+    'api_domain' => env('API_DOMAIN', null),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
