@@ -7,7 +7,7 @@
   <title>{{ $title }}</title>
   <script>
     window.settings = {
-      base_url: "/",
+      base_url: "{{ env('API_DOMAIN', '/') }}",
       title: "{{ $title }}",
       version: "{{ $version }}",
       logo: "{{ $logo }}",
