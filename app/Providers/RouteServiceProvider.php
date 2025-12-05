@@ -28,12 +28,9 @@ class RouteServiceProvider extends ServiceProvider
             resolve(\Illuminate\Routing\UrlGenerator::class)->forceScheme('https');
         }
 
-        // 如果配置了 API_DOMAIN，统一设置所有 URL 的基础地址
-        // 注意：这会影响所有使用 url() 和 route() 的地方
-        $apiDomain = config('app.api_domain');
-        if ($apiDomain) {
-            resolve(\Illuminate\Routing\UrlGenerator::class)->forceRootUrl($apiDomain);
-        }
+        // API 域名配置已通过 Blade 模板传递给前端
+        // 前端 JavaScript 使用 window.settings.base_url 或 window.routerBase
+        // 不需要在这里全局设置 forceRootUrl，因为那会影响所有路由
 
         parent::boot();
     }

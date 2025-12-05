@@ -98,6 +98,12 @@ if ! check_and_install_php_ext "redis" "redis"; then
     echo -e "${YELLOW}⚠ Redis 扩展未安装，将使用 Predis（纯 PHP 实现）${NC}"
 fi
 
+# 检查 Swoole（Octane 需要）
+if ! check_and_install_php_ext "swoole" "swoole"; then
+    echo -e "${YELLOW}⚠ Swoole 扩展未安装，Octane 将无法使用 Swoole 服务器${NC}"
+    echo "   可以使用 RoadRunner 替代：在 .env 中设置 OCTANE_SERVER=roadrunner"
+fi
+
 echo ""
 
 # 检查 Redis 服务
