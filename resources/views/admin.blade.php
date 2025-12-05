@@ -7,7 +7,7 @@
   <title>{{ $title }}</title>
   <script>
     window.settings = {
-      base_url: "{{ config('app.api_domain') ? config('app.api_domain') : '/' }}",
+      base_url: "{{ config('app.api_domain') ? rtrim(config('app.api_domain'), '/') . '/' : '/' }}",
       title: "{{ $title }}",
       version: "{{ $version }}",
       logo: "{{ $logo }}",
