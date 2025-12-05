@@ -91,6 +91,43 @@ docker compose restart
 
 2. For aaPanel installations, restart the Octane daemon process
 
+## 🚀 Quick Update Scripts (aaPanel)
+
+For aaPanel deployments, we provide two convenient scripts:
+
+### 1. Environment Setup Script (`setup-environment.sh`)
+Check and install required PHP extensions and services:
+```bash
+cd /www/wwwroot/xboard
+chmod +x setup-environment.sh
+./setup-environment.sh
+```
+
+This script will:
+- Check and install required PHP extensions (fileinfo, curl, xml, mysql, mbstring, redis)
+- Check and install Redis service
+- Prepare Composer
+- Set file permissions
+
+### 2. Code Update Script (`update-xboard.sh`)
+Update code, dependencies, and run migrations:
+```bash
+cd /www/wwwroot/xboard
+chmod +x update-xboard.sh
+./update-xboard.sh
+```
+
+This script will:
+- Pull latest code from Git
+- Update Composer dependencies
+- Run database migrations
+- Clear and optimize cache
+- Set file permissions
+
+**Usage Flow:**
+1. First time setup: Run `setup-environment.sh` once
+2. Regular updates: Run `update-xboard.sh` when you need to update code
+
 ## 🤝 Contributing
 
 Issues and Pull Requests are welcome to help improve the project.
