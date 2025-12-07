@@ -47,6 +47,15 @@ echo -e "${GREEN}✓ 当前目录: $CURRENT_DIR${NC}"
 # 检查 PHP 版本
 PHP_VERSION=$(php -v | head -n 1)
 echo -e "${GREEN}✓ PHP 版本: $PHP_VERSION${NC}"
+
+# 检查 Swoole 重复加载警告
+if php -m 2>&1 | grep -qi "Module.*swoole.*is already loaded"; then
+    echo -e "${YELLOW}⚠ 检测到 Swoole 重复加载警告${NC}"
+    echo "  这不会影响功能，但会产生警告信息"
+    echo "  可以运行以下命令修复："
+    echo "    ./fix-swoole-and-online-status.sh"
+    echo ""
+fi
 echo ""
 
 # 检查 vendor/autoload.php 是否存在

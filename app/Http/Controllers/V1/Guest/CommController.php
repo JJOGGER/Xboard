@@ -32,6 +32,25 @@ class CommController extends Controller
             'is_recaptcha' => (int) admin_setting('captcha_enable', 0) ? 1 : 0,
         ];
 
+        // 容灾支持：返回前端域名配置
+        // 客户端可以通过此配置自动发现和切换到新的前端域名
+        $frontendDomain = config('app.frontend_domain');
+        $frontendDomainBackup = config('app.frontend_domain_backup');
+        
+        if ($frontendDomain) {
+            $data['frontend_domain_primary'] = $frontendDomain;
+            $data['frontend_domains'] = [$frontendDomain];
+            
+            // 添加备用域名
+            if ($frontendDomainBackup) {
+                $backupDomains = is_array($frontendDomainBackup) 
+                    ? $frontendDomainBackup 
+                    : explode(',', $frontendDomainBackup);
+                $backupDomains = array_map('trim', $backupDomains);
+                $data['frontend_domains'] = array_merge($data['frontend_domains'], $backupDomains);
+            }
+        }
+
         $data = HookManager::filter('guest_comm_config', $data);
 
         return $this->success($data);

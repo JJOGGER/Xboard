@@ -99,9 +99,136 @@ if ! check_and_install_php_ext "redis" "redis"; then
 fi
 
 # 检查 Swoole（Octane 需要）
-if ! check_and_install_php_ext "swoole" "swoole"; then
-    echo -e "${YELLOW}⚠ Swoole 扩展未安装，Octane 将无法使用 Swoole 服务器${NC}"
-    echo "   可以使用 RoadRunner 替代：在 .env 中设置 OCTANE_SERVER=roadrunner"
+echo ""
+echo -e "${BLUE}检查 Swoole 扩展（Octane 需要）${NC}"
+echo "----------------------------------------"
+SWOOLE_INSTALLED=false
+
+# 检查 Swoole 是否已安装
+if php -m 2>/dev/null | grep -qi "^swoole$"; then
+    SWOOLE_VERSION=$(php -r "echo phpversion('swoole');" 2>/dev/null || echo "unknown")
+    echo -e "${GREEN}✓ Swoole 扩展已安装 (版本: $SWOOLE_VERSION)${NC}"
+    SWOOLE_INSTALLED=true
+else
+    echo -e "${YELLOW}⚠ 未检测到 Swoole 扩展${NC}"
+    
+    # 检查 PHP 扫描目录配置
+    SCAN_DIR=$(php --ini 2>/dev/null | grep "Scan for additional" | awk -F: '{print $2}' | xargs)
+    if [ -z "$SCAN_DIR" ] || [ "$SCAN_DIR" = "(none)" ]; then
+        echo -e "${YELLOW}⚠ PHP 未配置扫描目录，conf.d 中的配置不会被加载${NC}"
+        echo "  将直接在主配置文件中添加 Swoole 配置..."
+        
+        # 查找主配置文件
+        PHP_CLI_INI=""
+        if [ -f "/www/server/php/${PHP_VER//./}/etc/php-cli.ini" ]; then
+            PHP_CLI_INI="/www/server/php/${PHP_VER//./}/etc/php-cli.ini"
+        elif [ -f "/etc/php/${PHP_VER}/cli/php.ini" ]; then
+            PHP_CLI_INI="/etc/php/${PHP_VER}/cli/php.ini"
+        fi
+        
+        if [ -n "$PHP_CLI_INI" ] && [ -f "$PHP_CLI_INI" ]; then
+            # 检查扩展文件是否存在
+            PHP_EXT_DIR=$(php -r "echo ini_get('extension_dir');" 2>/dev/null)
+            if [ -f "$PHP_EXT_DIR/swoole.so" ]; then
+                # 检查主配置文件中是否已有正确的配置
+                if ! grep -q "^extension=swoole.so" "$PHP_CLI_INI" 2>/dev/null; then
+                    # 清理格式错误的配置
+                    sed -i '/^[^;]*extension.*swoole[^.]*$/s/^/; /' "$PHP_CLI_INI" 2>/dev/null
+                    # 添加正确的配置
+                    if ! grep -q "extension=swoole.so" "$PHP_CLI_INI" 2>/dev/null; then
+                        echo "" >> "$PHP_CLI_INI"
+                        echo "; Swoole extension (added by setup script)" >> "$PHP_CLI_INI"
+                        echo "extension=swoole.so" >> "$PHP_CLI_INI"
+                        echo -e "${GREEN}✓ 已在主配置文件中添加 Swoole 配置${NC}"
+                    fi
+                fi
+            fi
+        fi
+    else
+        # PHP 配置了扫描目录，检查 conf.d 中的配置
+        CONF_D_DIR="$SCAN_DIR"
+        if [ -d "$CONF_D_DIR" ]; then
+            SWOOLE_INI=$(find "$CONF_D_DIR" -name "*swoole*.ini" 2>/dev/null | head -1)
+            if [ -n "$SWOOLE_INI" ] && [ -f "$SWOOLE_INI" ]; then
+                # 确保配置格式正确
+                if ! grep -q "^extension=swoole.so$" "$SWOOLE_INI" 2>/dev/null; then
+                    echo "修复 conf.d 中的 Swoole 配置..."
+                    echo "extension=swoole.so" > "$SWOOLE_INI"
+                    echo -e "${GREEN}✓ 已修复 conf.d 中的配置${NC}"
+                fi
+            else
+                # 创建配置文件
+                echo "在 conf.d 中创建 Swoole 配置..."
+                echo "extension=swoole.so" > "$CONF_D_DIR/20-swoole.ini"
+                echo -e "${GREEN}✓ 已创建配置文件${NC}"
+            fi
+        fi
+    fi
+    
+    # 尝试通过 apt 安装（如果扩展文件不存在）
+    PHP_EXT_DIR=$(php -r "echo ini_get('extension_dir');" 2>/dev/null)
+    if [ ! -f "$PHP_EXT_DIR/swoole.so" ]; then
+        if command -v apt-get >/dev/null 2>&1; then
+            echo "Swoole 扩展文件不存在，尝试通过 apt 安装..."
+            if apt-get install -y "php${PHP_VER}-swoole" >/dev/null 2>&1; then
+                sleep 2
+            fi
+        fi
+    fi
+    
+    # 重新检查
+    sleep 1
+    if php -m 2>/dev/null | grep -qi "^swoole$"; then
+        SWOOLE_VERSION=$(php -r "echo phpversion('swoole');" 2>/dev/null || echo "unknown")
+        echo -e "${GREEN}✓ Swoole 扩展现在已加载 (版本: $SWOOLE_VERSION)${NC}"
+        SWOOLE_INSTALLED=true
+    else
+        # 检查主配置文件中的格式错误
+        if [ -n "$PHP_CLI_INI" ] && [ -f "$PHP_CLI_INI" ]; then
+            # 检查是否有格式错误的配置（包含注释内容）
+            if grep -q "extension.*swoole.*#" "$PHP_CLI_INI" 2>/dev/null; then
+                echo "发现格式错误的 Swoole 配置，正在修复..."
+                # 注释掉所有格式错误的行
+                sed -i '/^[^;]*extension.*swoole.*#/s/^/; /' "$PHP_CLI_INI"
+                # 确保有正确的配置
+                if ! grep -q "^extension=swoole.so" "$PHP_CLI_INI" 2>/dev/null; then
+                    echo "" >> "$PHP_CLI_INI"
+                    echo "extension=swoole.so" >> "$PHP_CLI_INI"
+                fi
+                echo -e "${GREEN}✓ 已修复格式错误的配置${NC}"
+                
+                # 再次检查
+                sleep 1
+                if php -m 2>/dev/null | grep -qi "^swoole$"; then
+                    SWOOLE_VERSION=$(php -r "echo phpversion('swoole');" 2>/dev/null || echo "unknown")
+                    echo -e "${GREEN}✓ Swoole 扩展现在已加载 (版本: $SWOOLE_VERSION)${NC}"
+                    SWOOLE_INSTALLED=true
+                fi
+            fi
+        fi
+    fi
+    
+    # 如果仍未安装，提供详细说明
+    if [ "$SWOOLE_INSTALLED" = false ]; then
+        echo -e "${YELLOW}⚠ Swoole 扩展安装失败${NC}"
+        echo ""
+        echo "安装方法："
+        echo "  方法 1（推荐）：通过 aaPanel 安装"
+        echo "    1. 登录 aaPanel"
+        echo "    2. 进入：App Store > PHP ${PHP_VER} > 设置 > 安装扩展"
+        echo "    3. 找到 'swoole' 扩展，点击安装"
+        echo "    4. 安装完成后重启 PHP-FPM"
+        echo ""
+        echo "  方法 2：手动安装"
+        echo "    apt install php${PHP_VER}-swoole -y"
+        echo ""
+        echo "  方法 3：使用 RoadRunner 替代（如果无法安装 Swoole）"
+        echo "    在 .env 文件中设置：OCTANE_SERVER=roadrunner"
+        echo ""
+        echo "验证安装："
+        echo "    php -m | grep swoole"
+        echo ""
+    fi
 fi
 
 echo ""
@@ -233,15 +360,21 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 if [ $MISSING_EXTS -gt 0 ]; then
-    echo -e "${YELLOW}⚠ 检测到 $MISSING_EXTS 个缺失的扩展${NC}"
+    echo -e "${YELLOW}⚠ 检测到 $MISSING_EXTS 个缺失的必需扩展${NC}"
     echo "请手动安装缺失的扩展后重新运行此脚本"
     echo ""
     echo "安装命令："
-    echo "  apt install php${PHP_VER}-fileinfo php${PHP_VER}-curl php${PHP_VER}-xml php${PHP_VER}-mysql php${PHP_VER}-mbstring php${PHP_VER}-redis -y"
+    echo "  apt install php${PHP_VER}-fileinfo php${PHP_VER}-curl php${PHP_VER}-xml php${PHP_VER}-mysql php${PHP_VER}-mbstring php${PHP_VER}-redis php${PHP_VER}-swoole -y"
     echo ""
     exit 1
 else
     echo -e "${GREEN}✓ 所有必需的 PHP 扩展已安装${NC}"
+    
+    # 检查 Swoole 状态
+    if [ "$SWOOLE_INSTALLED" = false ]; then
+        echo -e "${YELLOW}⚠ Swoole 扩展未安装（可选，但推荐安装以使用 Octane）${NC}"
+    fi
+    
     echo -e "${GREEN}✓ 环境准备完成，可以运行 update-xboard.sh 进行代码更新${NC}"
     echo ""
 fi

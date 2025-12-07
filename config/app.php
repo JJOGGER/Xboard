@@ -68,6 +68,21 @@ return [
     */
 
     'api_domain' => env('API_DOMAIN', null),
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend Domain Configuration (容灾支持)
+    |--------------------------------------------------------------------------
+    |
+    | 前端域名配置，用于容灾场景。当项目服务器迁移时，客户端可以通过
+    | API 接口获取新的前端域名，实现自动切换。
+    |
+    | FRONTEND_DOMAIN: 主前端域名
+    | FRONTEND_DOMAIN_BACKUP: 备用前端域名（多个用逗号分隔）
+    |
+    */
+    'frontend_domain' => env('FRONTEND_DOMAIN', null),
+    'frontend_domain_backup' => env('FRONTEND_DOMAIN_BACKUP', null),
 
     /*
     |--------------------------------------------------------------------------

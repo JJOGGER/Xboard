@@ -213,11 +213,7 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
     protected function requestGateway(array $body): array
     {
-        // 检查是否使用模拟网关
-        $useMock = env('TANGCHAO_USE_MOCK', false);
-        $gatewayUrl = $useMock 
-            ? env('TANGCHAO_MOCK_URL', 'http://localhost:7001/api/v1/guest/tangchao/mock/gateway')
-            : 'https://api.tangchaoshop.com/payment/gateway';
+        $gatewayUrl = 'https://api.tangchaoshop.com/payment/gateway';
         
         Log::info('TangchaoPay gateway request', [
             'url' => $gatewayUrl,
@@ -316,75 +312,6 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
     protected function rsaEncrypt(string $data, string $privateKey): string
     {
-        // ============ 硬编码的私钥和公钥（用于测试） ============
-        $hardcodedPrivateKey = "-----BEGIN PRIVATE KEY-----
-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
-rWsrQj4i6XMRHQLNEDulG+v0sBS0sQ==
------END PRIVATE KEY-----";
-
-        $hardcodedPublicKey = "-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAq+h7CCUOcYuBgz/EsceY
-x0chU0FI4taIPX1c2nIFfO4xbqnZvRkfmzsnmSncLerO5seE799Gfo0pZeoq+JJ
-+Gkm/5fHQZloo5cyTHjPFKQqov9lYYRccUv1//UfWak1n0xh8QGj+JSSTmE4BDad
-yJ+WgQD6RoKgLbj8f2HzlEV0fEKbFKIrJL7NngC71PvxnpTdmHICmEbT5pxSMvVk
-sNaR/msHeMuntHuRxD1j0i5wRqpktZeeQULx9+b1xprXAQ6+KhKjLUrvspaRmV3+
-rI0VsZL55kvlG2uAq82dE/mtYe0WWZC5HRcoEqD47X+3tlZ3ZulYwO83E+Hh2zYa
-tLYde9t6vwA+ReJsa1ECR2LX3ClDhQo0cq+cwEnGLFPtzVbQn/mgNRuWrwy4LjAS
-TSBcG+IEIsyeKgCpQRORZebUU+Giq//hDNYfYEwe3Y6FOx1RqXiGCVbLnfq/MG+t
-zcnoaQZgFLE8rNUpGZ8wsulaU7iOQH6pN6AKqFtn9pK+xwru/EIefs4gJDK20aht
-LcedVF3SiCmZMTUQDoRPfGDg11Uj0GjNgTveT4wMAqtul7OYC3OjeDedg7Y3cYtu
-/X1pkirbaR2SpkfHYXxSxEAzWcgO1XTxug8f/Pw/4pVedpL+G55nJOQtuxj0uSKI
-RnXEVil61Bv6NFwNQRqyxTcCAwEAAQ==
------END PUBLIC KEY-----";
-        
         // 清理私钥中的多余空格和换行
         $privateKey = trim($privateKey);
         
