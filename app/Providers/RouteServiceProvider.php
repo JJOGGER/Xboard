@@ -71,6 +71,10 @@ class RouteServiceProvider extends ServiceProvider
      */
     protected function mapApiRoutes()
     {
+        // 添加 /api/api.json 路由（用于API域名故障转移）
+        Route::get('/api/api.json', [\App\Http\Controllers\V1\Guest\CommController::class, 'getApiDomainList'])
+            ->middleware('api');
+
         Route::group([
             'prefix' => '/api/v1',
             'middleware' => 'api',

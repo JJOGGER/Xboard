@@ -102,4 +102,51 @@ class CommController extends Controller
             'domain' => $domain
         ]);
     }
+
+    /**
+     * 获取API域名列表（用于故障转移）
+     * 返回格式与静态api.json文件相同
+     * 
+     * 注意：如果存在 /public/api/api.json 静态文件，会优先返回该文件内容
+     * 否则返回配置的域名列表
+     */
+    public function getApiDomainList()
+    {
+        // 优先检查是否存在静态文件
+        $staticFile = public_path('api/api.json');
+        if (file_exists($staticFile)) {
+            $content = file_get_contents($staticFile);
+            $data = json_decode($content, true);
+            if (json_last_error() === JSON_ERROR_NONE && $data) {
+                // 返回静态文件内容，Laravel CORS中间件会自动添加CORS头
+                return response()->json($data, 200, [
+                    'Content-Type' => 'application/json; charset=utf-8',
+                ]);
+            }
+        }
+        
+        // 如果没有静态文件，从配置中获取域名列表
+        $apiDomain = config('app.api_domain');
+        $mainDomain = $apiDomain ? rtrim($apiDomain, '/') : null;
+        
+        // 可以从配置中读取备用域名列表
+        // 格式示例：domain数组可以是字符串数组，也可以是包含逗号分隔字符串的数组
+        $domains = [];
+        if ($mainDomain) {
+            // 如果配置了备用域名，可以从环境变量或数据库读取
+            // 这里暂时只返回主域名
+            $domains = [$mainDomain];
+        }
+        
+        $data = [
+            'main_domain' => $mainDomain,
+            'domain' => $domains,
+            'update' => 24 // 更新间隔（小时）
+        ];
+        
+        // Laravel CORS中间件会自动添加CORS响应头
+        return response()->json($data, 200, [
+            'Content-Type' => 'application/json; charset=utf-8',
+        ]);
+    }
 }
