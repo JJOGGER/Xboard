@@ -312,17 +312,40 @@
   function switchApiDomain(newDomain) {
     const baseUrl = newDomain.replace(/\/$/, '') + '/';
     
-    // 更新全局配置
-    if (window.routerBase !== undefined) {
-      window.routerBase = baseUrl;
-    }
+    // 强制更新全局配置（无论之前是否存在）
+    window.routerBase = baseUrl;
+    
     if (window.settings) {
       window.settings.base_url = baseUrl;
+    } else {
+      // 如果 settings 不存在，创建一个基础对象
+      window.settings = { base_url: baseUrl };
     }
     
     // 更新 Axios 默认 baseURL（如果存在）
-    if (window.axios && window.axios.defaults) {
-      window.axios.defaults.baseURL = baseUrl;
+    if (window.axios) {
+      if (window.axios.defaults) {
+        window.axios.defaults.baseURL = baseUrl;
+      }
+      // 如果 axios 实例已创建，也需要更新所有已存在的实例
+      if (window.axios.create) {
+        // 确保后续创建的实例也使用新的 baseURL
+        const originalCreate = window.axios.create;
+        window.axios.create = function(config) {
+          const newConfig = { ...config };
+          if (!newConfig.baseURL) {
+            newConfig.baseURL = baseUrl;
+          }
+          return originalCreate.call(this, newConfig);
+        };
+      }
+    }
+    
+    // 触发自定义事件，通知其他代码域名已切换
+    if (typeof window.CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('apiDomainSwitched', { 
+        detail: { domain: newDomain, baseUrl: baseUrl } 
+      }));
     }
     
     console.log('API domain switched to:', baseUrl);
@@ -432,24 +455,38 @@
     console.log('Initializing API domain...');
     
     try {
-      // 1. 优先检查 localStorage 缓存（最快，不需要网络请求）
+      // 1. 优先检查 localStorage 缓存（立即切换，不需要等待测试）
       console.log('Checking localStorage cache...');
       const localCached = getCachedDomain();
       if (localCached) {
         console.log('Found cached domain in localStorage:', localCached);
-        if (await testDomain(localCached)) {
-          console.log('Using cached domain from localStorage:', localCached);
-          switchApiDomain(localCached);
-          // 同时更新数据库缓存（异步，不阻塞）
-          saveDomainToDatabase(localCached).catch(err => {
-            console.warn('Failed to update database cache:', err);
-          });
-          return;
-        } else {
-          console.log('Cached domain from localStorage is not available, clearing cache');
-          localStorage.removeItem(CONFIG.cacheKey);
-          localStorage.removeItem(CONFIG.cacheExpireKey);
-        }
+        // 立即切换域名（不等待测试完成）
+        console.log('Immediately switching to cached domain:', localCached);
+        switchApiDomain(localCached);
+        
+        // 异步验证域名是否仍然可用
+        testDomain(localCached).then(isAvailable => {
+          if (isAvailable) {
+            console.log('Cached domain verified as available:', localCached);
+            // 同时更新数据库缓存（异步，不阻塞）
+            saveDomainToDatabase(localCached).catch(err => {
+              console.warn('Failed to update database cache:', err);
+            });
+          } else {
+            console.warn('Cached domain is no longer available, will re-fetch');
+            // 清除缓存，但不立即切换（避免在初始化时多次切换）
+            localStorage.removeItem(CONFIG.cacheKey);
+            localStorage.removeItem(CONFIG.cacheExpireKey);
+            // 触发重新查找可用域名（异步，不阻塞初始化）
+            findAndSwitchDomain().catch(err => {
+              console.warn('Failed to find alternative domain:', err);
+            });
+          }
+        }).catch(err => {
+          console.warn('Failed to verify cached domain:', err);
+        });
+        
+        return; // 立即返回，不等待测试
       }
       
       // 2. 尝试从数据库获取缓存的域名（使用当前页面的 origin，不依赖可能不可用的 API 域名）
@@ -457,6 +494,7 @@
       const dbCached = await getCachedDomainFromDatabase();
       if (dbCached) {
         console.log('Found cached domain in database:', dbCached);
+        // 先测试再切换
         if (await testDomain(dbCached)) {
           console.log('Using cached domain from database:', dbCached);
           switchApiDomain(dbCached);
@@ -468,6 +506,17 @@
       }
       
       // 3. 如果缓存都不可用，从api.json获取域名列表
+      await findAndSwitchDomain();
+      
+    } catch (error) {
+      console.error('Failed to initialize domain:', error);
+      // 初始化失败不影响页面功能，继续使用当前域名
+    }
+  }
+  
+  // 查找并切换可用域名的辅助函数
+  async function findAndSwitchDomain() {
+    try {
       console.log('Fetching domains from api.json...');
       const domains = await fetchBackupDomains();
       
@@ -478,7 +527,7 @@
       
       console.log('Found domains in api.json:', domains);
       
-      // 4. 按顺序测试每个域名，找到第一个可用的
+      // 按顺序测试每个域名，找到第一个可用的
       for (const domain of domains) {
         console.log('Testing domain:', domain);
         if (await testDomain(domain)) {
@@ -495,25 +544,38 @@
       
       console.warn('No available domain found, keeping current domain');
     } catch (error) {
-      console.error('Failed to initialize domain:', error);
-      // 初始化失败不影响页面功能，继续使用当前域名
+      console.error('Failed to find and switch domain:', error);
     }
   }
   
+  // 立即检查并切换 localStorage 缓存的域名（同步执行，不等待任何异步操作）
+  // 这样可以确保在脚本加载的第一时间就切换域名
+  (function immediateDomainSwitch() {
+    try {
+      const localCached = getCachedDomain();
+      if (localCached) {
+        console.log('Immediate domain switch from localStorage:', localCached);
+        switchApiDomain(localCached);
+      }
+    } catch (e) {
+      console.warn('Failed to do immediate domain switch:', e);
+    }
+  })();
+  
   // 初始化
   async function init() {
-    // 先设置拦截器（用于失败后的切换）
-    setupInterceptors();
-    
-    // 然后初始化域名（页面加载时立即切换）
+    // 先初始化域名（页面加载时立即切换，必须在拦截器之前执行）
+    // 这样确保在设置拦截器之前，域名就已经切换好了
     await initializeDomain();
+    
+    // 然后设置拦截器（用于失败后的切换）
+    setupInterceptors();
   }
   
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  // 立即执行初始化（不等待 DOMContentLoaded）
+  // 这样可以尽早切换域名，避免前端应用使用旧的域名
+  init();
 })();
+
 
 
