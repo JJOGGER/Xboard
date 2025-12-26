@@ -71,16 +71,10 @@
   // 从数据库获取缓存的域名
   async function getCachedDomainFromDatabase() {
     try {
-      // 使用当前配置的API域名或当前页面的origin
-      const currentDomain = window.routerBase || window.settings?.base_url || '/';
-      let apiBase;
-      
-      if (currentDomain.startsWith('http')) {
-        apiBase = currentDomain.replace(/\/$/, '');
-      } else {
-        // 如果是相对路径，使用当前页面的origin
-        apiBase = window.location.origin;
-      }
+      // 使用当前页面的 origin 来访问数据库缓存端点
+      // 这样可以避免使用可能不可用的 window.routerBase
+      // 注意：如果当前页面的域名也不可用，这个请求会失败，但不会影响后续逻辑
+      const apiBase = window.location.origin;
       
       const response = await fetch(apiBase + '/api/v1/guest/comm/api-domain-cache', {
         method: 'GET',
@@ -89,6 +83,7 @@
       });
       
       if (!response.ok) {
+        console.log('Failed to get cached domain from database: HTTP ' + response.status);
         return null;
       }
       
@@ -437,7 +432,27 @@
     console.log('Initializing API domain...');
     
     try {
-      // 1. 先尝试从数据库获取缓存的域名
+      // 1. 优先检查 localStorage 缓存（最快，不需要网络请求）
+      console.log('Checking localStorage cache...');
+      const localCached = getCachedDomain();
+      if (localCached) {
+        console.log('Found cached domain in localStorage:', localCached);
+        if (await testDomain(localCached)) {
+          console.log('Using cached domain from localStorage:', localCached);
+          switchApiDomain(localCached);
+          // 同时更新数据库缓存（异步，不阻塞）
+          saveDomainToDatabase(localCached).catch(err => {
+            console.warn('Failed to update database cache:', err);
+          });
+          return;
+        } else {
+          console.log('Cached domain from localStorage is not available, clearing cache');
+          localStorage.removeItem(CONFIG.cacheKey);
+          localStorage.removeItem(CONFIG.cacheExpireKey);
+        }
+      }
+      
+      // 2. 尝试从数据库获取缓存的域名（使用当前页面的 origin，不依赖可能不可用的 API 域名）
       console.log('Trying to get cached domain from database...');
       const dbCached = await getCachedDomainFromDatabase();
       if (dbCached) {
@@ -452,7 +467,7 @@
         }
       }
       
-      // 2. 如果数据库缓存不可用，从api.json获取域名列表
+      // 3. 如果缓存都不可用，从api.json获取域名列表
       console.log('Fetching domains from api.json...');
       const domains = await fetchBackupDomains();
       
@@ -463,7 +478,7 @@
       
       console.log('Found domains in api.json:', domains);
       
-      // 3. 按顺序测试每个域名，找到第一个可用的
+      // 4. 按顺序测试每个域名，找到第一个可用的
       for (const domain of domains) {
         console.log('Testing domain:', domain);
         if (await testDomain(domain)) {
