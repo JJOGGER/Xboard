@@ -25,8 +25,8 @@ class GuestRoute
             $router->match(['get', 'post'], '/payment/notify/{method}/{uuid}', [PaymentController::class, 'notify']);
             // Comm
             $router->get('/comm/config', [CommController::class, 'config']);
-            $router->get('/comm/api-domain-cache', [CommController::class, 'getCachedApiDomain']);
-            $router->post('/comm/api-domain-cache', [CommController::class, 'saveCachedApiDomain']);
+            $router->match(['GET', 'OPTIONS'], '/comm/api-domain-cache', [CommController::class, 'getCachedApiDomain']);
+            $router->match(['POST', 'OPTIONS'], '/comm/api-domain-cache', [CommController::class, 'saveCachedApiDomain']);
             // 唐朝支付回调路由
             $router->post('/payment/tangchao', [PaymentController::class, 'handleTangchaoPayNotify']);
         });

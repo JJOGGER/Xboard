@@ -11,6 +11,7 @@
     get failoverUrl() {
       const currentDomain = window.routerBase || window.settings?.base_url || '/';
       // 从当前域名构建备用域名服务地址
+      // 访问路径：/api/api.json
       if (currentDomain.startsWith('http')) {
         return currentDomain.replace(/\/$/, '') + '/api/api.json';
       }
@@ -19,8 +20,8 @@
       const host = window.location.host;
       return protocol + '//' + host + '/api/api.json';
     },
-    // 测试端点（用于检测域名可用性）
-    testEndpoint: '/api/v1/user/comm/config',
+    // 测试端点（用于检测域名可用性，使用 guest 端点，不需要认证）
+    testEndpoint: '/api/v1/guest/comm/config',
     // 最大重试次数
     maxRetries: 3,
     // 请求超时时间（毫秒）
@@ -135,8 +136,8 @@
   // 测试域名可用性
   async function testDomain(domain) {
     try {
-      // 使用用户配置接口测试
-      const testUrl = domain.replace(/\/$/, '') + '/api/v1/user/comm/config';
+      // 使用 guest 配置接口测试（不需要认证）
+      const testUrl = domain.replace(/\/$/, '') + '/api/v1/guest/comm/config';
       
       // 使用 AbortController 实现超时
       const controller = new AbortController();
@@ -151,11 +152,19 @@
       
       clearTimeout(timeoutId);
       
-      // 200/401/403 都表示 API 可用
-      // 200: 成功
-      // 401: 需要认证（API 正常）
-      // 403: 禁止访问（API 正常）
-      return response.status === 200 || response.status === 401 || response.status === 403;
+      // 只有 200 状态码表示 API 可用
+      // 200: 成功（API 正常可用）
+      // 401: 需要认证（端点可能需要认证，但通常 guest 端点不需要，视为不可用）
+      // 403: 禁止访问（端点不可用或被拒绝）
+      // 404: 端点不存在（不可用）
+      // 5xx: 服务器错误（不可用）
+      const isAvailable = response.status === 200;
+      
+      if (!isAvailable) {
+        console.log('Domain test failed for ' + domain + ': HTTP ' + response.status);
+      }
+      
+      return isAvailable;
     } catch (error) {
       // 网络错误、超时等都返回 false
       console.log('Domain test failed for ' + domain + ':', error.message || error);

@@ -59,8 +59,17 @@ class CommController extends Controller
     /**
      * 获取缓存的可用API域名
      */
-    public function getCachedApiDomain()
+    public function getCachedApiDomain(\Illuminate\Http\Request $request)
     {
+        // 处理 OPTIONS 预检请求
+        if ($request->method() === 'OPTIONS') {
+            return response('', 204)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                ->header('Access-Control-Max-Age', '3600');
+        }
+
         $cachedDomain = admin_setting('api_domain_cache', null);
         $cacheTime = admin_setting('api_domain_cache_time', null);
 
@@ -86,6 +95,15 @@ class CommController extends Controller
      */
     public function saveCachedApiDomain(\Illuminate\Http\Request $request)
     {
+        // 处理 OPTIONS 预检请求
+        if ($request->method() === 'OPTIONS') {
+            return response('', 204)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                ->header('Access-Control-Max-Age', '3600');
+        }
+
         $request->validate([
             'domain' => 'required|string|url'
         ]);
