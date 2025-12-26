@@ -20,7 +20,7 @@
       return protocol + '//' + host + '/api/api.json';
     },
     // 测试端点（用于检测域名可用性）
-    testEndpoint: '/api/v1/guest/config',
+    testEndpoint: '/api/v1/user/comm/config',
     // 最大重试次数
     maxRetries: 3,
     // 请求超时时间（毫秒）
@@ -34,7 +34,7 @@
     cacheExpireHours: 24
   };
   
-  // 获取缓存的域名
+  // 从localStorage获取缓存的域名
   function getCachedDomain() {
     try {
       const cached = localStorage.getItem(CONFIG.cacheKey);
@@ -50,34 +50,100 @@
         localStorage.removeItem(CONFIG.cacheExpireKey);
       }
     } catch (e) {
-      console.warn('Failed to read cache:', e);
+      console.warn('Failed to read local cache:', e);
     }
     
     return null;
   }
   
-  // 保存域名到缓存
-  function saveDomainToCache(domain, expireHours) {
+  // 保存域名到缓存（localStorage）
+  function saveDomainToLocalCache(domain, expireHours) {
     try {
       const expire = Date.now() + ((expireHours || CONFIG.cacheExpireHours) * 60 * 60 * 1000);
       localStorage.setItem(CONFIG.cacheKey, domain);
       localStorage.setItem(CONFIG.cacheExpireKey, expire.toString());
     } catch (e) {
-      console.warn('Failed to save cache:', e);
+      console.warn('Failed to save local cache:', e);
+    }
+  }
+
+  // 从数据库获取缓存的域名
+  async function getCachedDomainFromDatabase() {
+    try {
+      // 使用当前配置的API域名或当前页面的origin
+      const currentDomain = window.routerBase || window.settings?.base_url || '/';
+      let apiBase;
+      
+      if (currentDomain.startsWith('http')) {
+        apiBase = currentDomain.replace(/\/$/, '');
+      } else {
+        // 如果是相对路径，使用当前页面的origin
+        apiBase = window.location.origin;
+      }
+      
+      const response = await fetch(apiBase + '/api/v1/guest/comm/api-domain-cache', {
+        method: 'GET',
+        cache: 'no-cache',
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        return null;
+      }
+      
+      const data = await response.json();
+      if (data.data && data.data.domain) {
+        return data.data.domain;
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('Failed to get cached domain from database:', error);
+      return null;
+    }
+  }
+
+  // 保存域名到数据库
+  async function saveDomainToDatabase(domain) {
+    try {
+      // 使用刚刚找到的可用域名作为API基础URL，确保保存操作能成功
+      const apiBase = domain.replace(/\/$/, '');
+      
+      const response = await fetch(apiBase + '/api/v1/guest/comm/api-domain-cache', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ domain: domain }),
+        cache: 'no-cache',
+        mode: 'cors'
+      });
+      
+      if (response.ok) {
+        console.log('Domain saved to database:', domain);
+        return true;
+      } else {
+        console.warn('Failed to save domain to database:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.warn('Failed to save domain to database:', error);
+      return false;
     }
   }
   
   // 测试域名可用性
   async function testDomain(domain) {
     try {
-      const testUrl = domain.replace(/\/$/, '') + CONFIG.testEndpoint;
+      // 使用用户配置接口测试
+      const testUrl = domain.replace(/\/$/, '') + '/api/v1/user/comm/config';
       
       // 使用 AbortController 实现超时
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
       
       const response = await fetch(testUrl, {
-        method: 'HEAD',
+        method: 'GET',
         signal: controller.signal,
         cache: 'no-cache',
         mode: 'cors'
@@ -92,6 +158,7 @@
       return response.status === 200 || response.status === 401 || response.status === 403;
     } catch (error) {
       // 网络错误、超时等都返回 false
+      console.log('Domain test failed for ' + domain + ':', error.message || error);
       return false;
     }
   }
@@ -116,15 +183,31 @@
       
       const data = await response.json();
       
-      // 只使用 domain 数组，忽略 main_domain
-      if (!data.domain || !Array.isArray(data.domain) || data.domain.length === 0) {
-        throw new Error('No backup domains found in response');
+      // 解析域名列表
+      const domains = [];
+      
+      // 处理 domain 数组，支持逗号分隔的字符串
+      if (data.domain && Array.isArray(data.domain)) {
+        data.domain.forEach(item => {
+          const domainStr = String(item).trim();
+          // 如果字符串包含逗号，按逗号分割
+          if (domainStr.includes(',')) {
+            const splitDomains = domainStr.split(',').map(d => d.trim()).filter(d => d.length > 0);
+            domains.push(...splitDomains);
+          } else if (domainStr.length > 0) {
+            domains.push(domainStr);
+          }
+        });
+      }
+      
+      // 如果 domain 数组为空，尝试使用 main_domain
+      if (domains.length === 0 && data.main_domain) {
+        domains.push(String(data.main_domain).trim());
       }
       
       // 清理域名格式（去除尾部斜杠）
-      const domains = data.domain.map(d => {
-        const domain = String(d).trim();
-        return domain.replace(/\/$/, '');
+      const cleanedDomains = domains.map(d => {
+        return d.replace(/\/$/, '');
       }).filter(d => d.length > 0);
       
       // 更新缓存过期时间（如果返回了 update 字段）
@@ -132,7 +215,11 @@
         CONFIG.cacheExpireHours = data.update;
       }
       
-      return domains;
+      if (cleanedDomains.length === 0) {
+        throw new Error('No backup domains found in response');
+      }
+      
+      return cleanedDomains;
     } catch (error) {
       console.error('Failed to fetch backup domains:', error);
       return [];
@@ -141,15 +228,32 @@
   
   // 查找可用域名
   async function findAvailableDomain() {
-    // 1. 先检查缓存
+    // 1. 先检查数据库缓存
+    console.log('Checking database cache...');
+    const dbCached = await getCachedDomainFromDatabase();
+    if (dbCached) {
+      console.log('Found cached domain in database:', dbCached);
+      if (await testDomain(dbCached)) {
+        console.log('Cached domain from database is available:', dbCached);
+        // 同时保存到localStorage
+        saveDomainToLocalCache(dbCached);
+        return dbCached;
+      } else {
+        console.log('Cached domain from database is not available');
+      }
+    }
+    
+    // 2. 检查localStorage缓存
     const cached = getCachedDomain();
     if (cached) {
-      console.log('Testing cached domain:', cached);
+      console.log('Testing cached domain from localStorage:', cached);
       if (await testDomain(cached)) {
-        console.log('Cached domain is available:', cached);
+        console.log('Cached domain from localStorage is available:', cached);
+        // 保存到数据库
+        await saveDomainToDatabase(cached);
         return cached;
       } else {
-        console.log('Cached domain is not available, clearing cache');
+        console.log('Cached domain from localStorage is not available, clearing cache');
         try {
           localStorage.removeItem(CONFIG.cacheKey);
           localStorage.removeItem(CONFIG.cacheExpireKey);
@@ -159,7 +263,7 @@
       }
     }
     
-    // 2. 获取备用域名列表
+    // 3. 获取备用域名列表
     console.log('Fetching backup domains from:', CONFIG.failoverUrl);
     const domains = await fetchBackupDomains();
     
@@ -170,12 +274,14 @@
     
     console.log('Found backup domains:', domains);
     
-    // 3. 测试每个域名，找到第一个可用的
+    // 4. 测试每个域名，找到第一个可用的
     for (const domain of domains) {
       console.log('Testing domain:', domain);
       if (await testDomain(domain)) {
         console.log('Found available domain:', domain);
-        saveDomainToCache(domain);
+        // 保存到localStorage和数据库
+        saveDomainToLocalCache(domain);
+        await saveDomainToDatabase(domain);
         return domain;
       }
     }
@@ -296,11 +402,79 @@
     console.log('API failover interceptor installed');
   }
   
+  // 初始化：在页面加载时立即获取并切换域名
+  async function initializeDomain() {
+    // 只有当配置了 API_DOMAIN 且是绝对 URL 时才执行初始化切换
+    const currentDomain = window.routerBase || window.settings?.base_url || '/';
+    if (!currentDomain.startsWith('http')) {
+      console.log('API domain is relative path, skip domain initialization');
+      return;
+    }
+    
+    console.log('Initializing API domain...');
+    
+    try {
+      // 1. 先尝试从数据库获取缓存的域名
+      console.log('Trying to get cached domain from database...');
+      const dbCached = await getCachedDomainFromDatabase();
+      if (dbCached) {
+        console.log('Found cached domain in database:', dbCached);
+        if (await testDomain(dbCached)) {
+          console.log('Using cached domain from database:', dbCached);
+          switchApiDomain(dbCached);
+          saveDomainToLocalCache(dbCached);
+          return;
+        } else {
+          console.log('Cached domain from database is not available');
+        }
+      }
+      
+      // 2. 如果数据库缓存不可用，从api.json获取域名列表
+      console.log('Fetching domains from api.json...');
+      const domains = await fetchBackupDomains();
+      
+      if (domains.length === 0) {
+        console.warn('No domains found in api.json, using current domain');
+        return;
+      }
+      
+      console.log('Found domains in api.json:', domains);
+      
+      // 3. 按顺序测试每个域名，找到第一个可用的
+      for (const domain of domains) {
+        console.log('Testing domain:', domain);
+        if (await testDomain(domain)) {
+          console.log('Found available domain:', domain);
+          switchApiDomain(domain);
+          // 保存到localStorage和数据库
+          saveDomainToLocalCache(domain);
+          await saveDomainToDatabase(domain);
+          return;
+        } else {
+          console.log('Domain not available:', domain);
+        }
+      }
+      
+      console.warn('No available domain found, keeping current domain');
+    } catch (error) {
+      console.error('Failed to initialize domain:', error);
+      // 初始化失败不影响页面功能，继续使用当前域名
+    }
+  }
+  
   // 初始化
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupInterceptors);
-  } else {
+  async function init() {
+    // 先设置拦截器（用于失败后的切换）
     setupInterceptors();
+    
+    // 然后初始化域名（页面加载时立即切换）
+    await initializeDomain();
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
 

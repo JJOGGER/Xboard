@@ -55,4 +55,51 @@ class CommController extends Controller
 
         return $this->success($data);
     }
+
+    /**
+     * 获取缓存的可用API域名
+     */
+    public function getCachedApiDomain()
+    {
+        $cachedDomain = admin_setting('api_domain_cache', null);
+        $cacheTime = admin_setting('api_domain_cache_time', null);
+
+        // 检查缓存是否过期（24小时）
+        if ($cachedDomain && $cacheTime) {
+            $expireTime = 24 * 60 * 60; // 24小时
+            if (time() - intval($cacheTime) < $expireTime) {
+                return $this->success([
+                    'domain' => $cachedDomain,
+                    'cached_at' => intval($cacheTime)
+                ]);
+            }
+        }
+
+        return $this->success([
+            'domain' => null,
+            'cached_at' => null
+        ]);
+    }
+
+    /**
+     * 保存缓存的可用API域名
+     */
+    public function saveCachedApiDomain(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'domain' => 'required|string|url'
+        ]);
+
+        $domain = rtrim($request->input('domain'), '/');
+        
+        admin_setting([
+            'api_domain_cache' => $domain,
+            'api_domain_cache_time' => time()
+        ]);
+
+        return $this->success([
+            'message' => 'API domain cached successfully',
+            'domain' => $domain
+        ]);
+    }
 }
