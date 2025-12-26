@@ -5,20 +5,24 @@
 (function() {
   'use strict';
   
+  // 保存原始 API 域名（用于获取备用域名列表，不应被切换覆盖）
+  const ORIGINAL_API_DOMAIN = (function() {
+    // 在脚本加载时立即获取原始域名（此时还没有被切换）
+    const originalDomain = window.routerBase || window.settings?.base_url || window.location.origin;
+    if (originalDomain.startsWith('http')) {
+      return originalDomain.replace(/\/$/, '');
+    }
+    // 如果当前是相对路径，使用当前页面的 origin
+    return window.location.origin;
+  })();
+  
   // 配置
   const CONFIG = {
-    // 备用域名服务地址（从当前 API 域名获取）
+    // 备用域名服务地址（始终使用原始 API 域名，不受切换影响）
     get failoverUrl() {
-      const currentDomain = window.routerBase || window.settings?.base_url || '/';
-      // 从当前域名构建备用域名服务地址
-      // 访问路径：/api/api.json
-      if (currentDomain.startsWith('http')) {
-        return currentDomain.replace(/\/$/, '') + '/api/api.json';
-      }
-      // 如果当前是相对路径，尝试从 window.location 获取
-      const protocol = window.location.protocol;
-      const host = window.location.host;
-      return protocol + '//' + host + '/api/api.json';
+      // 使用保存的原始域名，而不是动态的 window.routerBase
+      // 这样即使切换到备用域名后，仍然可以从原始域名获取备用域名列表
+      return ORIGINAL_API_DOMAIN + '/api/api.json';
     },
     // 测试端点（用于检测域名可用性，使用 guest 端点，不需要认证）
     testEndpoint: '/api/v1/guest/comm/config',
@@ -71,10 +75,9 @@
   // 从数据库获取缓存的域名
   async function getCachedDomainFromDatabase() {
     try {
-      // 使用当前页面的 origin 来访问数据库缓存端点
-      // 这样可以避免使用可能不可用的 window.routerBase
-      // 注意：如果当前页面的域名也不可用，这个请求会失败，但不会影响后续逻辑
-      const apiBase = window.location.origin;
+      // 使用原始 API 域名来访问数据库缓存端点
+      // 这样可以确保即使切换到备用域名后，仍然可以从原始域名获取缓存
+      const apiBase = ORIGINAL_API_DOMAIN;
       
       const response = await fetch(apiBase + '/api/v1/guest/comm/api-domain-cache', {
         method: 'GET',
@@ -102,8 +105,8 @@
   // 保存域名到数据库
   async function saveDomainToDatabase(domain) {
     try {
-      // 使用刚刚找到的可用域名作为API基础URL，确保保存操作能成功
-      const apiBase = domain.replace(/\/$/, '');
+      // 使用原始 API 域名作为API基础URL，确保保存操作始终在原始服务器上执行
+      const apiBase = ORIGINAL_API_DOMAIN;
       
       const response = await fetch(apiBase + '/api/v1/guest/comm/api-domain-cache', {
         method: 'POST',
