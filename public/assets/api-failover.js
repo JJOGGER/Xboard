@@ -170,15 +170,29 @@
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
       
       const response = await fetch(CONFIG.failoverUrl, {
+        method: 'GET',
         cache: 'no-cache',
         signal: controller.signal,
-        mode: 'cors'
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
       
       clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error('Failed to fetch backup domains: ' + response.status);
+      }
+      
+      // 检查响应内容类型
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.warn('Response is not JSON, content:', text.substring(0, 100));
+        throw new Error('Response is not JSON');
       }
       
       const data = await response.json();

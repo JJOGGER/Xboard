@@ -110,8 +110,17 @@ class CommController extends Controller
      * 注意：如果存在 /public/api/api.json 静态文件，会优先返回该文件内容
      * 否则返回配置的域名列表
      */
-    public function getApiDomainList()
+    public function getApiDomainList(\Illuminate\Http\Request $request)
     {
+        // 处理 OPTIONS 预检请求
+        if ($request->method() === 'OPTIONS') {
+            return response('', 204)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Content-Type')
+                ->header('Access-Control-Max-Age', '3600');
+        }
+
         // 优先检查是否存在静态文件
         $staticFile = public_path('api/api.json');
         if (file_exists($staticFile)) {
