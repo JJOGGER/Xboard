@@ -31,7 +31,7 @@
         'fa-IR'
       ],
       logo: '{{$logo}}',
-      backup_api_domain: {{ config('app.backup_api_domain') ? "'" . rtrim(config('app.backup_api_domain'), '/') . "'" : 'null' }}
+      backup_api_domain: {!! config('app.backup_api_domain') ? json_encode(rtrim(config('app.backup_api_domain'), '/')) : 'null' !!}
     }
   </script>
   <script src="/assets/api-failover.js"></script>
