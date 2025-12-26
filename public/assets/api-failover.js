@@ -147,7 +147,8 @@
   async function testDomain(domain) {
     try {
       // 使用 guest 配置接口测试（不需要认证）
-      const testUrl = domain.replace(/\/$/, '') + '/api/v1/guest/comm/config';
+      // 添加时间戳参数避免浏览器缓存
+      const testUrl = domain.replace(/\/$/, '') + '/api/v1/guest/comm/config?t=' + Date.now();
       
       // 使用 AbortController 实现超时
       const controller = new AbortController();
@@ -185,10 +186,15 @@
   // 获取备用域名列表
   async function fetchBackupDomains() {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+      // 添加时间戳参数避免浏览器缓存
+      const failoverUrl = CONFIG.failoverUrl + (CONFIG.failoverUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
       
-      const response = await fetch(CONFIG.failoverUrl, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, CONFIG.timeout);
+      
+      const response = await fetch(failoverUrl, {
         method: 'GET',
         cache: 'no-cache',
         signal: controller.signal,
@@ -254,7 +260,14 @@
       
       return cleanedDomains;
     } catch (error) {
-      console.error('Failed to fetch backup domains:', error);
+      // 区分不同类型的错误
+      if (error.name === 'AbortError') {
+        console.warn('Failed to fetch backup domains: Request timeout after ' + CONFIG.timeout + 'ms');
+      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        console.warn('Failed to fetch backup domains: Network error or CORS issue');
+      } else {
+        console.error('Failed to fetch backup domains:', error);
+      }
       return [];
     }
   }
@@ -507,8 +520,8 @@
       // 2. 先测试原始 API_DOMAIN 是否可用
       console.log('Testing original API_DOMAIN:', ORIGINAL_API_DOMAIN);
       if (await testDomain(ORIGINAL_API_DOMAIN)) {
-        console.log('Original API_DOMAIN is available, using it');
-        // 原始域名可用，直接使用，不需要切换
+        console.log('Original API_DOMAIN is available, using it - no need to fetch backup domains');
+        // 原始域名可用，直接使用，不需要切换，也不需要获取备用域名列表
         return;
       }
       
