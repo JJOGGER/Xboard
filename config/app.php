@@ -71,6 +71,18 @@ return [
     
     /*
     |--------------------------------------------------------------------------
+    | Backup API Domain Configuration
+    |--------------------------------------------------------------------------
+    |
+    | If set, this domain will be used to fetch backup domain list when
+    | API_DOMAIN is unavailable. Set this in your ".env" file as BACKUP_API_DOMAIN.
+    |
+    */
+    
+    'backup_api_domain' => env('BACKUP_API_DOMAIN', null),
+    
+    /*
+    |--------------------------------------------------------------------------
     | Frontend Domain Configuration (容灾支持)
     |--------------------------------------------------------------------------
     |

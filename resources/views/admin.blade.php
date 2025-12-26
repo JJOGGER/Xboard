@@ -12,6 +12,7 @@
       version: "{{ $version }}",
       logo: "{{ $logo }}",
       secure_path: "{{ $secure_path }}",
+      backup_api_domain: {{ config('app.backup_api_domain') ? "'" . rtrim(config('app.backup_api_domain'), '/') . "'" : 'null' }}
     };
   </script>
   <script src="/assets/api-failover.js"></script>

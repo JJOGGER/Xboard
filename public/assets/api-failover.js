@@ -5,7 +5,7 @@
 (function() {
   'use strict';
   
-  // 保存原始 API 域名（用于获取备用域名列表，不应被切换覆盖）
+  // 保存原始 API 域名（API_DOMAIN，用于初始请求）
   const ORIGINAL_API_DOMAIN = (function() {
     // 在脚本加载时立即获取原始域名（此时还没有被切换）
     const originalDomain = window.routerBase || window.settings?.base_url || window.location.origin;
@@ -16,13 +16,24 @@
     return window.location.origin;
   })();
   
+  // 保存备用 API 域名（BACKUP_API_DOMAIN，用于获取备用域名列表）
+  const BACKUP_API_DOMAIN = (function() {
+    // 从 window.settings 获取配置的备用域名
+    const backupDomain = window.settings?.backup_api_domain;
+    if (backupDomain && backupDomain.startsWith('http')) {
+      return backupDomain.replace(/\/$/, '');
+    }
+    // 如果没有配置备用域名，使用原始域名作为后备
+    return ORIGINAL_API_DOMAIN;
+  })();
+  
   // 配置
   const CONFIG = {
-    // 备用域名服务地址（始终使用原始 API 域名，不受切换影响）
+    // 备用域名服务地址（使用 BACKUP_API_DOMAIN，如果不可用则回退到原始域名）
     get failoverUrl() {
-      // 使用保存的原始域名，而不是动态的 window.routerBase
-      // 这样即使切换到备用域名后，仍然可以从原始域名获取备用域名列表
-      return ORIGINAL_API_DOMAIN + '/api/api.json';
+      // 优先使用 BACKUP_API_DOMAIN，如果没有配置则使用原始域名
+      // 这样即使切换到备用域名后，仍然可以从备用域名服务获取备用域名列表
+      return BACKUP_API_DOMAIN + '/api/api.json';
     },
     // 测试端点（用于检测域名可用性，使用 guest 端点，不需要认证）
     testEndpoint: '/api/v1/guest/comm/config',
@@ -105,8 +116,9 @@
   // 保存域名到数据库
   async function saveDomainToDatabase(domain) {
     try {
-      // 使用原始 API 域名作为API基础URL，确保保存操作始终在原始服务器上执行
-      const apiBase = ORIGINAL_API_DOMAIN;
+      // 使用传入的可用域名作为API基础URL，确保保存操作能够成功执行
+      // 因为只有可用的域名才能成功保存到数据库
+      const apiBase = domain.replace(/\/$/, '');
       
       const response = await fetch(apiBase + '/api/v1/guest/comm/api-domain-cache', {
         method: 'POST',
@@ -492,23 +504,17 @@
         return; // 立即返回，不等待测试
       }
       
-      // 2. 尝试从数据库获取缓存的域名（使用当前页面的 origin，不依赖可能不可用的 API 域名）
-      console.log('Trying to get cached domain from database...');
-      const dbCached = await getCachedDomainFromDatabase();
-      if (dbCached) {
-        console.log('Found cached domain in database:', dbCached);
-        // 先测试再切换
-        if (await testDomain(dbCached)) {
-          console.log('Using cached domain from database:', dbCached);
-          switchApiDomain(dbCached);
-          saveDomainToLocalCache(dbCached);
-          return;
-        } else {
-          console.log('Cached domain from database is not available');
-        }
+      // 2. 先测试原始 API_DOMAIN 是否可用
+      console.log('Testing original API_DOMAIN:', ORIGINAL_API_DOMAIN);
+      if (await testDomain(ORIGINAL_API_DOMAIN)) {
+        console.log('Original API_DOMAIN is available, using it');
+        // 原始域名可用，直接使用，不需要切换
+        return;
       }
       
-      // 3. 如果缓存都不可用，从api.json获取域名列表
+      console.log('Original API_DOMAIN is not available, fetching backup domains from BACKUP_API_DOMAIN...');
+      
+      // 3. 如果原始域名不可用，从 BACKUP_API_DOMAIN 获取备用域名列表
       await findAndSwitchDomain();
       
     } catch (error) {
