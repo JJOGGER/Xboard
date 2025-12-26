@@ -14,6 +14,7 @@
       secure_path: "{{ $secure_path }}",
     };
   </script>
+  <script src="/assets/api-failover.js"></script>
   <script type="module" crossorigin src="/assets/admin/assets/index.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css" />
   <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css">

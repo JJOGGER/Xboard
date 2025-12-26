@@ -33,6 +33,7 @@
       logo: '{{$logo}}'
     }
   </script>
+  <script src="/assets/api-failover.js"></script>
   <div id="app"></div>
   {!! $theme_config['custom_html'] !!}
 </body>
