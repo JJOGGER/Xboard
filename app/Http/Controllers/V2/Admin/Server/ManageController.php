@@ -52,6 +52,24 @@ class ManageController extends Controller
     public function save(ServerSave $request)
     {
         $params = $request->validated();
+        
+        // 处理tags字段：确保格式正确，过滤空值
+        if (isset($params['tags'])) {
+            if ($params['tags'] === null) {
+                $params['tags'] = [];
+            } else if (is_array($params['tags'])) {
+                // 过滤空值和无效值，重新索引数组
+                $params['tags'] = array_values(array_filter($params['tags'], function($tag) {
+                    return !empty($tag) && is_string($tag);
+                }));
+            }
+        } else {
+            // 如果tags字段未提供，在创建时设置为空数组，更新时保持原值
+            if (!$request->input('id')) {
+                $params['tags'] = [];
+            }
+        }
+        
         if ($request->input('id')) {
             $server = Server::find($request->input('id'));
             if (!$server) {

@@ -361,8 +361,8 @@ class OrderService
             $this->user->expired_at = time();
         }
         $this->user->transfer_enable = $plan->transfer_enable * 1073741824;
-        // 从一次性转换到循环或者新购的时候，重置流量
-        if ($this->user->expired_at === NULL || $order->type === Order::TYPE_NEW_PURCHASE)
+        // 从一次性转换到循环、新购或升级套餐的时候，重置流量
+        if ($this->user->expired_at === NULL || $order->type === Order::TYPE_NEW_PURCHASE || $order->type === Order::TYPE_UPGRADE)
             app(TrafficResetService::class)->performReset($this->user, TrafficResetLog::SOURCE_ORDER);
         $this->user->plan_id = $plan->id;
         $this->user->group_id = $plan->group_id;
