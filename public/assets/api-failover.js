@@ -39,8 +39,8 @@
     testEndpoint: '/api/v1/guest/comm/config',
     // 最大重试次数
     maxRetries: 3,
-    // 请求超时时间（毫秒）
-    timeout: 5000,
+    // 请求超时时间（毫秒）- 增加到 10 秒，避免网络延迟导致误判
+    timeout: 10000,
     // 失败计数阈值（连续失败 N 次后触发切换）
     failureThreshold: 2,
     // 缓存键名
@@ -177,8 +177,15 @@
       
       return isAvailable;
     } catch (error) {
+      // 区分不同类型的错误
+      if (error.name === 'AbortError') {
+        console.warn('Domain test timeout for ' + domain + ': Request exceeded ' + CONFIG.timeout + 'ms timeout');
+      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        console.warn('Domain test failed for ' + domain + ': Network error or CORS issue');
+      } else {
+        console.warn('Domain test failed for ' + domain + ':', error.message || error);
+      }
       // 网络错误、超时等都返回 false
-      console.log('Domain test failed for ' + domain + ':', error.message || error);
       return false;
     }
   }
@@ -188,7 +195,7 @@
     try {
       // 添加时间戳参数避免浏览器缓存
       const failoverUrl = CONFIG.failoverUrl + (CONFIG.failoverUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-      
+      console.log('Fetching backup domains from:', failoverUrl);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
@@ -209,7 +216,7 @@
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch backup domains: ' + response.status);
+        throw new Error('Failed to fetch backup domains: HTTP ' + response.status);
       }
       
       // 检查响应内容类型
@@ -506,7 +513,16 @@
             localStorage.removeItem(CONFIG.cacheKey);
             localStorage.removeItem(CONFIG.cacheExpireKey);
             // 触发重新查找可用域名（异步，不阻塞初始化）
-            findAndSwitchDomain().catch(err => {
+            findAvailableDomain().then(domain => {
+              if (domain) {
+                console.log('Found alternative domain:', domain);
+                switchApiDomain(domain);
+                saveDomainToLocalCache(domain);
+                saveDomainToDatabase(domain).catch(err => {
+                  console.warn('Failed to save domain to database:', err);
+                });
+              }
+            }).catch(err => {
               console.warn('Failed to find alternative domain:', err);
             });
           }
@@ -525,10 +541,16 @@
         return;
       }
       
-      console.log('Original API_DOMAIN is not available, fetching backup domains from BACKUP_API_DOMAIN...');
+      console.log('Original API_DOMAIN is not available, trying to find available domain...');
       
-      // 3. 如果原始域名不可用，从 BACKUP_API_DOMAIN 获取备用域名列表
-      await findAndSwitchDomain();
+      // 3. 如果原始域名不可用，先检查缓存，再尝试获取备用域名列表
+      const availableDomain = await findAvailableDomain();
+      if (availableDomain) {
+        console.log('Found available domain:', availableDomain);
+        switchApiDomain(availableDomain);
+      } else {
+        console.warn('No available domain found, keeping original domain');
+      }
       
     } catch (error) {
       console.error('Failed to initialize domain:', error);
