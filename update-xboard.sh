@@ -138,7 +138,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "正在合并更改..."
-git pull origin master
+git pull origin mazu
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ Git pull 失败${NC}"
@@ -149,7 +149,7 @@ if [ $? -ne 0 ]; then
     echo "  3. 权限问题"
     echo ""
     echo "可以尝试："
-    echo "  git reset --hard origin/master"
+    echo "  git reset --hard origin/mazu"
     echo "  或手动解决冲突后重新运行脚本"
     
     # 如果之前暂存了更改，恢复
