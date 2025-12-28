@@ -181,9 +181,17 @@
   // 测试域名可用性
   async function testDomain(domain) {
     try {
+      // 验证并清理域名，确保是有效的绝对 URL
+      const cleanedDomain = validateAndCleanDomain(domain);
+      if (!cleanedDomain) {
+        console.warn('Invalid domain format for testing:', domain);
+        return false;
+      }
+      
       // 使用 guest 配置接口测试（不需要认证）
+      // 使用绝对 URL，不依赖全局 routerBase 配置
       // 添加时间戳参数避免浏览器缓存
-      const testUrl = domain.replace(/\/$/, '') + '/api/v1/guest/comm/config?t=' + Date.now();
+      const testUrl = cleanedDomain + '/api/v1/guest/comm/config?t=' + Date.now();
       
       // 使用 AbortController 实现超时
       const controller = new AbortController();
@@ -193,7 +201,8 @@
         method: 'GET',
         signal: controller.signal,
         cache: 'no-cache',
-        mode: 'cors'
+        mode: 'cors',
+        credentials: 'omit'
       });
       
       clearTimeout(timeoutId);
@@ -207,7 +216,7 @@
       const isAvailable = response.status === 200;
       
       if (!isAvailable) {
-        console.log('Domain test failed for ' + domain + ': HTTP ' + response.status);
+        console.log('Domain test failed for ' + cleanedDomain + ': HTTP ' + response.status);
       }
       
       return isAvailable;
@@ -478,24 +487,29 @@
       
       // 2. 从配置的域名列表中按顺序测试，找到第一个可用的
       console.log('Testing domains from API_DOMAIN list...');
+      let availableDomain = null;
+      
       for (const domain of API_DOMAIN_LIST) {
         console.log('Testing domain:', domain);
+        // 使用绝对 URL 测试，不依赖全局 routerBase
         if (await testDomain(domain)) {
           console.log('Found available domain:', domain);
-          switchApiDomain(domain);
-          // 保存到localStorage和数据库
-          saveDomainToLocalCache(domain);
-          await saveDomainToDatabase(domain);
-          return;
+          availableDomain = domain;
+          break; // 找到可用域名后立即退出循环
         } else {
           console.log('Domain not available:', domain);
         }
       }
       
-      console.warn('No available domain found in API_DOMAIN list, using first domain as fallback');
-      // 如果所有域名都不可用，使用第一个域名作为后备（至少尝试使用）
-      if (API_DOMAIN_LIST.length > 0) {
-        switchApiDomain(API_DOMAIN_LIST[0]);
+      if (availableDomain) {
+        // 只有找到可用域名才切换
+        switchApiDomain(availableDomain);
+        // 保存到localStorage和数据库
+        saveDomainToLocalCache(availableDomain);
+        await saveDomainToDatabase(availableDomain);
+      } else {
+        console.warn('No available domain found in API_DOMAIN list');
+        // 不切换到不可用的域名，保持使用原始配置
       }
       
     } catch (error) {
