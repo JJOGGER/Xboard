@@ -206,20 +206,63 @@
       // 使用绝对 URL，不依赖全局 routerBase 配置
       // 添加时间戳参数避免浏览器缓存
       const testUrl = cleanedDomain + '/api/v1/guest/comm/config?t=' + Date.now();
+      const startTime = Date.now();
+      
+      console.log('Testing URL:', testUrl);
       
       // 使用 AbortController 实现超时
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+      const timeoutId = setTimeout(() => {
+        console.warn('Request timeout triggered for:', testUrl);
+        controller.abort();
+      }, CONFIG.timeout);
       
-      const response = await fetch(testUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        cache: 'no-cache',
-        mode: 'cors',
-        credentials: 'omit'
-      });
+      let response;
+      try {
+        response = await fetch(testUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          cache: 'no-cache',
+          mode: 'cors',
+          credentials: 'omit',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        const elapsed = Date.now() - startTime;
+        
+        // 详细记录错误信息
+        if (fetchError.name === 'AbortError') {
+          console.warn(`Domain test timeout for ${cleanedDomain}: Request exceeded ${CONFIG.timeout}ms timeout (elapsed: ${elapsed}ms)`);
+          console.warn('This usually means:');
+          console.warn('  1. Network is slow or unstable');
+          console.warn('  2. Domain is blocked or filtered');
+          console.warn('  3. Server is not responding');
+        } else if (fetchError.name === 'TypeError') {
+          const errorMsg = fetchError.message || '';
+          if (errorMsg.includes('Failed to fetch')) {
+            console.warn(`Domain test failed for ${cleanedDomain}: Network error or CORS issue`);
+            console.warn('Error details:', errorMsg);
+            console.warn('This usually means:');
+            console.warn('  1. CORS policy blocking the request');
+            console.warn('  2. Network connection failed');
+            console.warn('  3. Domain DNS resolution failed');
+          } else {
+            console.warn(`Domain test failed for ${cleanedDomain}:`, errorMsg);
+          }
+        } else {
+          console.warn(`Domain test failed for ${cleanedDomain}:`, fetchError);
+        }
+        
+        return false;
+      }
       
       clearTimeout(timeoutId);
+      const elapsed = Date.now() - startTime;
+      
+      console.log(`Domain test response for ${cleanedDomain}: HTTP ${response.status} (${elapsed}ms)`);
       
       // 只有 200 状态码表示 API 可用
       // 200: 成功（API 正常可用）
@@ -230,20 +273,15 @@
       const isAvailable = response.status === 200;
       
       if (!isAvailable) {
-        console.log('Domain test failed for ' + cleanedDomain + ': HTTP ' + response.status);
+        console.log(`Domain test failed for ${cleanedDomain}: HTTP ${response.status}`);
+      } else {
+        console.log(`✓ Domain ${cleanedDomain} is available (${elapsed}ms)`);
       }
       
       return isAvailable;
     } catch (error) {
-      // 区分不同类型的错误
-      if (error.name === 'AbortError') {
-        console.warn('Domain test timeout for ' + domain + ': Request exceeded ' + CONFIG.timeout + 'ms timeout');
-      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        console.warn('Domain test failed for ' + domain + ': Network error or CORS issue');
-      } else {
-        console.warn('Domain test failed for ' + domain + ':', error.message || error);
-      }
-      // 网络错误、超时等都返回 false
+      // 最后的错误捕获（不应该到达这里，因为上面的 catch 已经处理了）
+      console.error('Unexpected error in testDomain:', error);
       return false;
     }
   }
@@ -461,69 +499,113 @@
       const localCached = getCachedDomain();
       if (localCached) {
         console.log('Found cached domain in localStorage:', localCached);
-        // 立即切换域名（不等待测试完成）
-        console.log('Immediately switching to cached domain:', localCached);
-        switchApiDomain(localCached);
         
-        // 异步验证域名是否仍然可用
-        testDomain(localCached).then(isAvailable => {
-          if (isAvailable) {
-            console.log('Cached domain verified as available:', localCached);
-            // 同时更新数据库缓存（异步，不阻塞）
-            saveDomainToDatabase(localCached).catch(err => {
-              console.warn('Failed to update database cache:', err);
-            });
-          } else {
-            console.warn('Cached domain is no longer available, will re-test');
-            // 清除缓存，但不立即切换（避免在初始化时多次切换）
-            localStorage.removeItem(CONFIG.cacheKey);
-            localStorage.removeItem(CONFIG.cacheExpireKey);
-            // 触发重新查找可用域名（异步，不阻塞初始化）
-            findAvailableDomain().then(domain => {
-              if (domain) {
-                console.log('Found alternative domain:', domain);
-                switchApiDomain(domain);
-                saveDomainToLocalCache(domain);
-                saveDomainToDatabase(domain).catch(err => {
-                  console.warn('Failed to save domain to database:', err);
-                });
-              }
-            }).catch(err => {
-              console.warn('Failed to find alternative domain:', err);
-            });
-          }
-        }).catch(err => {
-          console.warn('Failed to verify cached domain:', err);
+        // 验证缓存的域名是否在配置列表中
+        const isValidDomain = API_DOMAIN_LIST.some(d => {
+          const cleaned = validateAndCleanDomain(localCached);
+          return cleaned && cleaned === d;
         });
         
-        return; // 立即返回，不等待测试
+        if (isValidDomain) {
+          // 立即切换域名（不等待测试完成）
+          console.log('Immediately switching to cached domain:', localCached);
+          switchApiDomain(localCached);
+          
+          // 异步验证域名是否仍然可用（后台验证，不阻塞）
+          testDomain(localCached).then(isAvailable => {
+            if (isAvailable) {
+              console.log('Cached domain verified as available:', localCached);
+              // 同时更新数据库缓存（异步，不阻塞）
+              saveDomainToDatabase(localCached).catch(err => {
+                console.warn('Failed to update database cache:', err);
+              });
+            } else {
+              console.warn('Cached domain is no longer available, will re-test in background');
+              // 清除缓存，但不立即切换（避免在初始化时多次切换）
+              localStorage.removeItem(CONFIG.cacheKey);
+              localStorage.removeItem(CONFIG.cacheExpireKey);
+              // 触发重新查找可用域名（异步，不阻塞初始化）
+              findAvailableDomain().then(domain => {
+                if (domain) {
+                  console.log('Found alternative domain:', domain);
+                  switchApiDomain(domain);
+                  saveDomainToLocalCache(domain);
+                  saveDomainToDatabase(domain).catch(err => {
+                    console.warn('Failed to save domain to database:', err);
+                  });
+                }
+              }).catch(err => {
+                console.warn('Failed to find alternative domain:', err);
+              });
+            }
+          }).catch(err => {
+            console.warn('Failed to verify cached domain:', err);
+          });
+          
+          return; // 立即返回，不等待测试
+        } else {
+          console.warn('Cached domain not in API_DOMAIN list, clearing cache:', localCached);
+          localStorage.removeItem(CONFIG.cacheKey);
+          localStorage.removeItem(CONFIG.cacheExpireKey);
+        }
+      }
+      
+      // 2. 如果有多个域名，说明已经在 dashboard.blade.php 中检测过了
+      // 这里只需要使用 window.routerBase 的当前值（已经被检测脚本设置好了）
+      if (API_DOMAIN_LIST.length > 1) {
+        const currentDomain = window.routerBase || window.settings?.base_url;
+        if (currentDomain && currentDomain.startsWith('http')) {
+          const cleanedDomain = validateAndCleanDomain(currentDomain.replace(/\/$/, ''));
+          if (cleanedDomain && API_DOMAIN_LIST.includes(cleanedDomain)) {
+            console.log('Using domain from pre-check:', cleanedDomain);
+            // 确保使用正确的域名
+            switchApiDomain(cleanedDomain);
+            saveDomainToLocalCache(cleanedDomain);
+            return;
+          }
+        }
       }
       
       // 2. 从配置的域名列表中按顺序测试，找到第一个可用的
       console.log('Testing domains from API_DOMAIN list...');
+      console.log('Total domains to test:', API_DOMAIN_LIST.length);
       let availableDomain = null;
       
-      for (const domain of API_DOMAIN_LIST) {
-        console.log('Testing domain:', domain);
+      for (let i = 0; i < API_DOMAIN_LIST.length; i++) {
+        const domain = API_DOMAIN_LIST[i];
+        console.log(`[${i + 1}/${API_DOMAIN_LIST.length}] Testing domain:`, domain);
+        
         // 使用绝对 URL 测试，不依赖全局 routerBase
-        if (await testDomain(domain)) {
-          console.log('Found available domain:', domain);
+        // 确保每次测试都是独立的，不会相互影响
+        const isAvailable = await testDomain(domain);
+        
+        if (isAvailable) {
+          console.log(`✓ Found available domain: ${domain}`);
           availableDomain = domain;
           break; // 找到可用域名后立即退出循环
         } else {
-          console.log('Domain not available:', domain);
+          console.log(`✗ Domain not available: ${domain}`);
+          // 继续测试下一个域名
         }
       }
       
       if (availableDomain) {
         // 只有找到可用域名才切换
+        console.log(`Switching to available domain: ${availableDomain}`);
         switchApiDomain(availableDomain);
         // 保存到localStorage和数据库
         saveDomainToLocalCache(availableDomain);
         await saveDomainToDatabase(availableDomain);
       } else {
-        console.warn('No available domain found in API_DOMAIN list');
-        // 不切换到不可用的域名，保持使用原始配置
+        console.warn('⚠️ No available domain found in API_DOMAIN list');
+        console.warn('All tested domains:', API_DOMAIN_LIST);
+        console.warn('Possible reasons:');
+        console.warn('  1. All domains are blocked or filtered');
+        console.warn('  2. Network connection issues');
+        console.warn('  3. All servers are down');
+        console.warn('  4. CORS policy blocking requests');
+        console.warn('Current window.routerBase:', window.routerBase);
+        // 不切换到不可用的域名，保持使用原始配置（已修复的第一个域名）
       }
       
     } catch (error) {
