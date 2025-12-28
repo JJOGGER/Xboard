@@ -192,91 +192,135 @@
   
   // 获取备用域名列表
   async function fetchBackupDomains() {
-    try {
-      // 使用原始 URL，不添加时间戳参数（已通过 cache: 'no-cache' 避免缓存）
-      const failoverUrl = CONFIG.failoverUrl;
-      console.log('Fetching backup domains from:', failoverUrl);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        controller.abort();
-      }, CONFIG.timeout);
-      
-      const response = await fetch(failoverUrl, {
-        method: 'GET',
-        cache: 'no-cache',
-        signal: controller.signal,
-        mode: 'cors',
-        credentials: 'omit',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+    // 尝试多次请求，使用不同的配置
+    const attempts = [
+      // 尝试1: 最简单的配置（不设置 mode，让浏览器自动处理）
+      async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+        try {
+          const response = await fetch(CONFIG.failoverUrl, {
+            method: 'GET',
+            cache: 'no-cache',
+            signal: controller.signal,
+            credentials: 'omit'
+          });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
         }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch backup domains: HTTP ' + response.status);
+      },
+      // 尝试2: 使用 cors 模式，但移除可能引起问题的 headers
+      async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+        try {
+          const response = await fetch(CONFIG.failoverUrl, {
+            method: 'GET',
+            cache: 'no-cache',
+            signal: controller.signal,
+            mode: 'cors',
+            credentials: 'omit',
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
+        }
       }
-      
-      // 检查响应内容类型
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.warn('Response is not JSON, content:', text.substring(0, 100));
-        throw new Error('Response is not JSON');
-      }
-      
-      const data = await response.json();
-      
-      // 解析域名列表
-      const domains = [];
-      
-      // 处理 domain 数组，支持逗号分隔的字符串
-      if (data.domain && Array.isArray(data.domain)) {
-        data.domain.forEach(item => {
-          const domainStr = String(item).trim();
-          // 如果字符串包含逗号，按逗号分割
-          if (domainStr.includes(',')) {
-            const splitDomains = domainStr.split(',').map(d => d.trim()).filter(d => d.length > 0);
-            domains.push(...splitDomains);
-          } else if (domainStr.length > 0) {
-            domains.push(domainStr);
+    ];
+    
+    for (let i = 0; i < attempts.length; i++) {
+      try {
+        console.log('Fetching backup domains from:', CONFIG.failoverUrl, `(attempt ${i + 1}/${attempts.length})`);
+        const response = await attempts[i]();
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch backup domains: HTTP ' + response.status);
+        }
+        
+        // 尝试解析 JSON，如果失败则尝试作为文本解析
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          // 如果 JSON 解析失败，尝试作为文本解析（可能是 JSONP 或其他格式）
+          const text = await response.text();
+          console.warn('Response is not valid JSON, trying to parse as text:', text.substring(0, 100));
+          try {
+            data = JSON.parse(text);
+          } catch (parseError) {
+            throw new Error('Response is not valid JSON');
           }
-        });
+        }
+        
+        // 解析域名列表
+        const domains = [];
+        
+        // 处理 domain 数组，支持逗号分隔的字符串
+        if (data.domain && Array.isArray(data.domain)) {
+          data.domain.forEach(item => {
+            const domainStr = String(item).trim();
+            // 如果字符串包含逗号，按逗号分割
+            if (domainStr.includes(',')) {
+              const splitDomains = domainStr.split(',').map(d => d.trim()).filter(d => d.length > 0);
+              domains.push(...splitDomains);
+            } else if (domainStr.length > 0) {
+              domains.push(domainStr);
+            }
+          });
+        }
+        
+        // 如果 domain 数组为空，尝试使用 main_domain
+        if (domains.length === 0 && data.main_domain) {
+          domains.push(String(data.main_domain).trim());
+        }
+        
+        // 清理域名格式（去除尾部斜杠）
+        const cleanedDomains = domains.map(d => {
+          return d.replace(/\/$/, '');
+        }).filter(d => d.length > 0);
+        
+        // 更新缓存过期时间（如果返回了 update 字段）
+        if (data.update && typeof data.update === 'number') {
+          CONFIG.cacheExpireHours = data.update;
+        }
+        
+        if (cleanedDomains.length === 0) {
+          throw new Error('No backup domains found in response');
+        }
+        
+        console.log('Successfully fetched backup domains:', cleanedDomains);
+        return cleanedDomains;
+      } catch (error) {
+        // 如果这次尝试失败，记录错误并继续下一次尝试
+        if (i === attempts.length - 1) {
+          // 最后一次尝试失败，记录详细错误
+          if (error.name === 'AbortError') {
+            console.warn('Failed to fetch backup domains: Request timeout after ' + CONFIG.timeout + 'ms');
+          } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+            console.warn('Failed to fetch backup domains: Network error or CORS issue', error);
+          } else {
+            console.error('Failed to fetch backup domains:', error);
+          }
+        } else {
+          // 不是最后一次尝试，只记录简要信息
+          console.log(`Attempt ${i + 1} failed, trying next method...`);
+        }
+        // 继续下一次尝试
+        continue;
       }
-      
-      // 如果 domain 数组为空，尝试使用 main_domain
-      if (domains.length === 0 && data.main_domain) {
-        domains.push(String(data.main_domain).trim());
-      }
-      
-      // 清理域名格式（去除尾部斜杠）
-      const cleanedDomains = domains.map(d => {
-        return d.replace(/\/$/, '');
-      }).filter(d => d.length > 0);
-      
-      // 更新缓存过期时间（如果返回了 update 字段）
-      if (data.update && typeof data.update === 'number') {
-        CONFIG.cacheExpireHours = data.update;
-      }
-      
-      if (cleanedDomains.length === 0) {
-        throw new Error('No backup domains found in response');
-      }
-      
-      return cleanedDomains;
-    } catch (error) {
-      // 区分不同类型的错误
-      if (error.name === 'AbortError') {
-        console.warn('Failed to fetch backup domains: Request timeout after ' + CONFIG.timeout + 'ms');
-      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        console.warn('Failed to fetch backup domains: Network error or CORS issue');
-      } else {
-        console.error('Failed to fetch backup domains:', error);
-      }
-      return [];
     }
+    
+    // 所有尝试都失败了
+    console.error('All attempts to fetch backup domains failed');
+    return [];
   }
   
   // 查找可用域名
