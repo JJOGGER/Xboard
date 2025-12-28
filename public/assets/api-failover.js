@@ -8,18 +8,32 @@
   // 解析 API 域名列表（支持逗号分隔的多个域名）
   const API_DOMAIN_LIST = (function() {
     // 在脚本加载时立即获取原始域名（此时还没有被切换）
-    const originalDomain = window.routerBase || window.settings?.base_url || window.location.origin;
+    let originalDomain = window.routerBase || window.settings?.base_url || window.location.origin;
     
     // 如果包含逗号，说明配置了多个域名
-    if (originalDomain.includes(',')) {
-      return originalDomain.split(',')
+    if (originalDomain && typeof originalDomain === 'string' && originalDomain.includes(',')) {
+      // 解析域名列表
+      const domainList = originalDomain.split(',')
         .map(d => d.trim())
         .filter(d => d.length > 0 && d.startsWith('http'))
         .map(d => d.replace(/\/$/, ''));
+      
+      // 立即修复 window.routerBase，只使用第一个域名，避免其他代码使用错误的 URL
+      if (domainList.length > 0) {
+        const firstDomain = domainList[0];
+        const fixedBaseUrl = firstDomain + '/';
+        window.routerBase = fixedBaseUrl;
+        if (window.settings) {
+          window.settings.base_url = fixedBaseUrl;
+        }
+        console.log('Fixed window.routerBase from comma-separated list to first domain:', fixedBaseUrl);
+      }
+      
+      return domainList;
     }
     
     // 单个域名
-    if (originalDomain.startsWith('http')) {
+    if (originalDomain && typeof originalDomain === 'string' && originalDomain.startsWith('http')) {
       return [originalDomain.replace(/\/$/, '')];
     }
     
@@ -520,12 +534,30 @@
   
   // 立即检查并切换 localStorage 缓存的域名（同步执行，不等待任何异步操作）
   // 这样可以确保在脚本加载的第一时间就切换域名
+  // 注意：这个函数在 API_DOMAIN_LIST 解析之后执行，所以可以安全使用
   (function immediateDomainSwitch() {
     try {
       const localCached = getCachedDomain();
       if (localCached) {
-        console.log('Immediate domain switch from localStorage:', localCached);
-        switchApiDomain(localCached);
+        // 验证缓存的域名是否在配置的域名列表中
+        const isValidDomain = API_DOMAIN_LIST.some(d => {
+          const cleaned = validateAndCleanDomain(localCached);
+          return cleaned && cleaned === d;
+        });
+        
+        if (isValidDomain) {
+          console.log('Immediate domain switch from localStorage:', localCached);
+          switchApiDomain(localCached);
+        } else {
+          // 缓存的域名不在配置列表中，清除缓存
+          console.warn('Cached domain not in API_DOMAIN list, clearing cache:', localCached);
+          try {
+            localStorage.removeItem(CONFIG.cacheKey);
+            localStorage.removeItem(CONFIG.cacheExpireKey);
+          } catch (e) {
+            // ignore
+          }
+        }
       }
     } catch (e) {
       console.warn('Failed to do immediate domain switch:', e);
