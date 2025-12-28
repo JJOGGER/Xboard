@@ -1,40 +1,34 @@
 /**
  * API 域名自动切换脚本
- * 当前端 API 请求失败时，自动从备用域名服务获取可用域名并切换
+ * 当前端 API 请求失败时，自动从配置的域名列表中按顺序测试并切换到可用域名
  */
 (function() {
   'use strict';
   
-  // 保存原始 API 域名（API_DOMAIN，用于初始请求）
-  const ORIGINAL_API_DOMAIN = (function() {
+  // 解析 API 域名列表（支持逗号分隔的多个域名）
+  const API_DOMAIN_LIST = (function() {
     // 在脚本加载时立即获取原始域名（此时还没有被切换）
     const originalDomain = window.routerBase || window.settings?.base_url || window.location.origin;
+    
+    // 如果包含逗号，说明配置了多个域名
+    if (originalDomain.includes(',')) {
+      return originalDomain.split(',')
+        .map(d => d.trim())
+        .filter(d => d.length > 0 && d.startsWith('http'))
+        .map(d => d.replace(/\/$/, ''));
+    }
+    
+    // 单个域名
     if (originalDomain.startsWith('http')) {
-      return originalDomain.replace(/\/$/, '');
+      return [originalDomain.replace(/\/$/, '')];
     }
+    
     // 如果当前是相对路径，使用当前页面的 origin
-    return window.location.origin;
-  })();
-  
-  // 保存备用 API 域名（BACKUP_API_DOMAIN，用于获取备用域名列表）
-  const BACKUP_API_DOMAIN = (function() {
-    // 从 window.settings 获取配置的备用域名
-    const backupDomain = window.settings?.backup_api_domain;
-    if (backupDomain && backupDomain.startsWith('http')) {
-      return backupDomain.replace(/\/$/, '');
-    }
-    // 如果没有配置备用域名，使用原始域名作为后备
-    return ORIGINAL_API_DOMAIN;
+    return [window.location.origin];
   })();
   
   // 配置
   const CONFIG = {
-    // 备用域名服务地址（使用 BACKUP_API_DOMAIN，如果不可用则回退到原始域名）
-    get failoverUrl() {
-      // 优先使用 BACKUP_API_DOMAIN，如果没有配置则使用原始域名
-      // 这样即使切换到备用域名后，仍然可以从备用域名服务获取备用域名列表
-      return BACKUP_API_DOMAIN + '/api/api.json';
-    },
     // 测试端点（用于检测域名可用性，使用 guest 端点，不需要认证）
     testEndpoint: '/api/v1/guest/comm/config',
     // 最大重试次数
@@ -85,32 +79,28 @@
 
   // 从数据库获取缓存的域名
   async function getCachedDomainFromDatabase() {
-    try {
-      // 使用原始 API 域名来访问数据库缓存端点
-      // 这样可以确保即使切换到备用域名后，仍然可以从原始域名获取缓存
-      const apiBase = ORIGINAL_API_DOMAIN;
-      
-      const response = await fetch(apiBase + '/api/v1/guest/comm/api-domain-cache', {
-        method: 'GET',
-        cache: 'no-cache',
-        mode: 'cors'
-      });
-      
-      if (!response.ok) {
-        console.log('Failed to get cached domain from database: HTTP ' + response.status);
-        return null;
+    // 尝试从配置的域名列表中按顺序测试，找到第一个可用的来获取缓存
+    for (const domain of API_DOMAIN_LIST) {
+      try {
+        const response = await fetch(domain + '/api/v1/guest/comm/api-domain-cache', {
+          method: 'GET',
+          cache: 'no-cache',
+          mode: 'cors'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data && data.data.domain) {
+            return data.data.domain;
+          }
+        }
+      } catch (error) {
+        // 继续尝试下一个域名
+        continue;
       }
-      
-      const data = await response.json();
-      if (data.data && data.data.domain) {
-        return data.data.domain;
-      }
-      
-      return null;
-    } catch (error) {
-      console.warn('Failed to get cached domain from database:', error);
-      return null;
     }
+    
+    return null;
   }
 
   // 保存域名到数据库
@@ -190,140 +180,7 @@
     }
   }
   
-  // 获取备用域名列表
-  async function fetchBackupDomains() {
-    // 尝试多次请求，使用不同的配置
-    const attempts = [
-      // 尝试1: 最简单的配置（不设置 mode，让浏览器自动处理）
-      async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
-        try {
-          const response = await fetch(CONFIG.failoverUrl, {
-            method: 'GET',
-            cache: 'no-cache',
-            signal: controller.signal,
-            credentials: 'omit'
-          });
-          clearTimeout(timeoutId);
-          return response;
-        } catch (e) {
-          clearTimeout(timeoutId);
-          throw e;
-        }
-      },
-      // 尝试2: 使用 cors 模式，但移除可能引起问题的 headers
-      async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
-        try {
-          const response = await fetch(CONFIG.failoverUrl, {
-            method: 'GET',
-            cache: 'no-cache',
-            signal: controller.signal,
-            mode: 'cors',
-            credentials: 'omit',
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
-          clearTimeout(timeoutId);
-          return response;
-        } catch (e) {
-          clearTimeout(timeoutId);
-          throw e;
-        }
-      }
-    ];
-    
-    for (let i = 0; i < attempts.length; i++) {
-      try {
-        console.log('Fetching backup domains from:', CONFIG.failoverUrl, `(attempt ${i + 1}/${attempts.length})`);
-        const response = await attempts[i]();
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch backup domains: HTTP ' + response.status);
-        }
-        
-        // 尝试解析 JSON，如果失败则尝试作为文本解析
-        let data;
-        try {
-          data = await response.json();
-        } catch (jsonError) {
-          // 如果 JSON 解析失败，尝试作为文本解析（可能是 JSONP 或其他格式）
-          const text = await response.text();
-          console.warn('Response is not valid JSON, trying to parse as text:', text.substring(0, 100));
-          try {
-            data = JSON.parse(text);
-          } catch (parseError) {
-            throw new Error('Response is not valid JSON');
-          }
-        }
-        
-        // 解析域名列表
-        const domains = [];
-        
-        // 处理 domain 数组，支持逗号分隔的字符串
-        if (data.domain && Array.isArray(data.domain)) {
-          data.domain.forEach(item => {
-            const domainStr = String(item).trim();
-            // 如果字符串包含逗号，按逗号分割
-            if (domainStr.includes(',')) {
-              const splitDomains = domainStr.split(',').map(d => d.trim()).filter(d => d.length > 0);
-              domains.push(...splitDomains);
-            } else if (domainStr.length > 0) {
-              domains.push(domainStr);
-            }
-          });
-        }
-        
-        // 如果 domain 数组为空，尝试使用 main_domain
-        if (domains.length === 0 && data.main_domain) {
-          domains.push(String(data.main_domain).trim());
-        }
-        
-        // 清理域名格式（去除尾部斜杠）
-        const cleanedDomains = domains.map(d => {
-          return d.replace(/\/$/, '');
-        }).filter(d => d.length > 0);
-        
-        // 更新缓存过期时间（如果返回了 update 字段）
-        if (data.update && typeof data.update === 'number') {
-          CONFIG.cacheExpireHours = data.update;
-        }
-        
-        if (cleanedDomains.length === 0) {
-          throw new Error('No backup domains found in response');
-        }
-        
-        console.log('Successfully fetched backup domains:', cleanedDomains);
-        return cleanedDomains;
-      } catch (error) {
-        // 如果这次尝试失败，记录错误并继续下一次尝试
-        if (i === attempts.length - 1) {
-          // 最后一次尝试失败，记录详细错误
-          if (error.name === 'AbortError') {
-            console.warn('Failed to fetch backup domains: Request timeout after ' + CONFIG.timeout + 'ms');
-          } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-            console.warn('Failed to fetch backup domains: Network error or CORS issue', error);
-          } else {
-            console.error('Failed to fetch backup domains:', error);
-          }
-        } else {
-          // 不是最后一次尝试，只记录简要信息
-          console.log(`Attempt ${i + 1} failed, trying next method...`);
-        }
-        // 继续下一次尝试
-        continue;
-      }
-    }
-    
-    // 所有尝试都失败了
-    console.error('All attempts to fetch backup domains failed');
-    return [];
-  }
-  
-  // 查找可用域名
+  // 查找可用域名（从配置的域名列表中按顺序测试）
   async function findAvailableDomain() {
     // 1. 先检查数据库缓存
     console.log('Checking database cache...');
@@ -360,19 +217,9 @@
       }
     }
     
-    // 3. 获取备用域名列表
-    console.log('Fetching backup domains from:', CONFIG.failoverUrl);
-    const domains = await fetchBackupDomains();
-    
-    if (domains.length === 0) {
-      console.error('No backup domains available');
-      return null;
-    }
-    
-    console.log('Found backup domains:', domains);
-    
-    // 4. 测试每个域名，找到第一个可用的
-    for (const domain of domains) {
+    // 3. 从配置的域名列表中按顺序测试
+    console.log('Testing domains from API_DOMAIN list:', API_DOMAIN_LIST);
+    for (const domain of API_DOMAIN_LIST) {
       console.log('Testing domain:', domain);
       if (await testDomain(domain)) {
         console.log('Found available domain:', domain);
@@ -383,7 +230,7 @@
       }
     }
     
-    console.error('No available domain found');
+    console.error('No available domain found in API_DOMAIN list');
     return null;
   }
   
@@ -525,13 +372,13 @@
   // 初始化：在页面加载时立即获取并切换域名
   async function initializeDomain() {
     // 只有当配置了 API_DOMAIN 且是绝对 URL 时才执行初始化切换
-    const currentDomain = window.routerBase || window.settings?.base_url || '/';
-    if (!currentDomain.startsWith('http')) {
-      console.log('API domain is relative path, skip domain initialization');
+    if (API_DOMAIN_LIST.length === 0 || !API_DOMAIN_LIST[0].startsWith('http')) {
+      console.log('API domain is relative path or empty, skip domain initialization');
       return;
     }
     
     console.log('Initializing API domain...');
+    console.log('API_DOMAIN list:', API_DOMAIN_LIST);
     
     try {
       // 1. 优先检查 localStorage 缓存（立即切换，不需要等待测试）
@@ -552,7 +399,7 @@
               console.warn('Failed to update database cache:', err);
             });
           } else {
-            console.warn('Cached domain is no longer available, will re-fetch');
+            console.warn('Cached domain is no longer available, will re-test');
             // 清除缓存，但不立即切换（避免在初始化时多次切换）
             localStorage.removeItem(CONFIG.cacheKey);
             localStorage.removeItem(CONFIG.cacheExpireKey);
@@ -577,46 +424,9 @@
         return; // 立即返回，不等待测试
       }
       
-      // 2. 先测试原始 API_DOMAIN 是否可用
-      console.log('Testing original API_DOMAIN:', ORIGINAL_API_DOMAIN);
-      if (await testDomain(ORIGINAL_API_DOMAIN)) {
-        console.log('Original API_DOMAIN is available, using it - no need to fetch backup domains');
-        // 原始域名可用，直接使用，不需要切换，也不需要获取备用域名列表
-        return;
-      }
-      
-      console.log('Original API_DOMAIN is not available, trying to find available domain...');
-      
-      // 3. 如果原始域名不可用，先检查缓存，再尝试获取备用域名列表
-      const availableDomain = await findAvailableDomain();
-      if (availableDomain) {
-        console.log('Found available domain:', availableDomain);
-        switchApiDomain(availableDomain);
-      } else {
-        console.warn('No available domain found, keeping original domain');
-      }
-      
-    } catch (error) {
-      console.error('Failed to initialize domain:', error);
-      // 初始化失败不影响页面功能，继续使用当前域名
-    }
-  }
-  
-  // 查找并切换可用域名的辅助函数
-  async function findAndSwitchDomain() {
-    try {
-      console.log('Fetching domains from api.json...');
-      const domains = await fetchBackupDomains();
-      
-      if (domains.length === 0) {
-        console.warn('No domains found in api.json, using current domain');
-        return;
-      }
-      
-      console.log('Found domains in api.json:', domains);
-      
-      // 按顺序测试每个域名，找到第一个可用的
-      for (const domain of domains) {
+      // 2. 从配置的域名列表中按顺序测试，找到第一个可用的
+      console.log('Testing domains from API_DOMAIN list...');
+      for (const domain of API_DOMAIN_LIST) {
         console.log('Testing domain:', domain);
         if (await testDomain(domain)) {
           console.log('Found available domain:', domain);
@@ -630,9 +440,15 @@
         }
       }
       
-      console.warn('No available domain found, keeping current domain');
+      console.warn('No available domain found in API_DOMAIN list, using first domain as fallback');
+      // 如果所有域名都不可用，使用第一个域名作为后备（至少尝试使用）
+      if (API_DOMAIN_LIST.length > 0) {
+        switchApiDomain(API_DOMAIN_LIST[0]);
+      }
+      
     } catch (error) {
-      console.error('Failed to find and switch domain:', error);
+      console.error('Failed to initialize domain:', error);
+      // 初始化失败不影响页面功能，继续使用当前域名
     }
   }
   
