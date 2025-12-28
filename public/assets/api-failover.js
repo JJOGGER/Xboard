@@ -193,8 +193,8 @@
   // 获取备用域名列表
   async function fetchBackupDomains() {
     try {
-      // 添加时间戳参数避免浏览器缓存
-      const failoverUrl = CONFIG.failoverUrl + (CONFIG.failoverUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+      // 使用原始 URL，不添加时间戳参数（已通过 cache: 'no-cache' 避免缓存）
+      const failoverUrl = CONFIG.failoverUrl;
       console.log('Fetching backup domains from:', failoverUrl);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
