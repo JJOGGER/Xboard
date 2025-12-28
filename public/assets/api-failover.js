@@ -51,7 +51,16 @@
       const expire = localStorage.getItem(CONFIG.cacheExpireKey);
       
       if (cached && expire && Date.now() < parseInt(expire, 10)) {
-        return cached;
+        // 验证并清理缓存的域名，确保是单个有效域名
+        const cleanedDomain = validateAndCleanDomain(cached);
+        if (cleanedDomain) {
+          return cleanedDomain;
+        } else {
+          // 如果缓存的域名格式无效，清除缓存
+          console.warn('Cached domain format is invalid, clearing cache:', cached);
+          localStorage.removeItem(CONFIG.cacheKey);
+          localStorage.removeItem(CONFIG.cacheExpireKey);
+        }
       }
       
       // 缓存过期，清除
@@ -69,8 +78,15 @@
   // 保存域名到缓存（localStorage）
   function saveDomainToLocalCache(domain, expireHours) {
     try {
+      // 验证并清理域名，确保是单个有效域名
+      const cleanedDomain = validateAndCleanDomain(domain);
+      if (!cleanedDomain) {
+        console.warn('Invalid domain format, cannot save to cache:', domain);
+        return;
+      }
+      
       const expire = Date.now() + ((expireHours || CONFIG.cacheExpireHours) * 60 * 60 * 1000);
-      localStorage.setItem(CONFIG.cacheKey, domain);
+      localStorage.setItem(CONFIG.cacheKey, cleanedDomain);
       localStorage.setItem(CONFIG.cacheExpireKey, expire.toString());
     } catch (e) {
       console.warn('Failed to save local cache:', e);
@@ -91,7 +107,11 @@
         if (response.ok) {
           const data = await response.json();
           if (data.data && data.data.domain) {
-            return data.data.domain;
+            // 验证并清理从数据库获取的域名
+            const cleanedDomain = validateAndCleanDomain(data.data.domain);
+            if (cleanedDomain) {
+              return cleanedDomain;
+            }
           }
         }
       } catch (error) {
@@ -131,6 +151,31 @@
       console.warn('Failed to save domain to database:', error);
       return false;
     }
+  }
+  
+  // 验证并清理域名格式（确保是单个有效域名）
+  function validateAndCleanDomain(domain) {
+    if (!domain || typeof domain !== 'string') {
+      return null;
+    }
+    
+    // 移除首尾空格
+    domain = domain.trim();
+    
+    // 如果包含逗号，说明可能是整个列表，只取第一个
+    if (domain.includes(',')) {
+      domain = domain.split(',')[0].trim();
+    }
+    
+    // 确保是有效的 HTTP/HTTPS URL
+    if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+      return null;
+    }
+    
+    // 移除尾部斜杠
+    domain = domain.replace(/\/+$/, '');
+    
+    return domain;
   }
   
   // 测试域名可用性
@@ -236,7 +281,14 @@
   
   // 切换 API 域名
   function switchApiDomain(newDomain) {
-    const baseUrl = newDomain.replace(/\/$/, '') + '/';
+    // 验证并清理域名，确保是单个有效域名
+    const cleanedDomain = validateAndCleanDomain(newDomain);
+    if (!cleanedDomain) {
+      console.error('Invalid domain format:', newDomain);
+      return;
+    }
+    
+    const baseUrl = cleanedDomain + '/';
     
     // 强制更新全局配置（无论之前是否存在）
     window.routerBase = baseUrl;
