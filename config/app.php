@@ -71,6 +71,20 @@ return [
     
     /*
     |--------------------------------------------------------------------------
+    | V2bX Server API Domain Configuration
+    |--------------------------------------------------------------------------
+    |
+    | This domain is used specifically for V2bX node server API endpoints
+    | (/api/v1/server/UniProxy/*). If set, V2bX-related requests must come
+    | from this domain. If not set, API_DOMAIN will be used instead.
+    | Set this in your ".env" file as V2BX_API_DOMAIN.
+    |
+    */
+    
+    'v2bx_api_domain' => env('V2BX_API_DOMAIN', null),
+    
+    /*
+    |--------------------------------------------------------------------------
     | Backup API Domain Configuration
     |--------------------------------------------------------------------------
     |
