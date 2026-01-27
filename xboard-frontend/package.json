@@ -1,0 +1,46 @@
+{
+  "name": "xboard-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XBoard Vue 3 Frontend - Admin & User Applications",
+  "scripts": {
+    "dev:admin": "pnpm --filter @xboard/admin dev",
+    "dev:user": "pnpm --filter @xboard/user dev",
+    "build:admin": "pnpm --filter @xboard/admin build",
+    "build:user": "pnpm --filter @xboard/user build",
+    "build": "pnpm build:admin && pnpm build:user",
+    "test": "pnpm --filter \"./packages/**\" test",
+    "test:unit": "pnpm --filter \"./packages/**\" test:unit",
+    "test:property": "pnpm --filter \"./packages/**\" test:property",
+    "test:e2e": "pnpm --filter \"./packages/**\" test:e2e",
+    "lint": "pnpm --filter \"./packages/**\" lint",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,vue,js,json,md}\""
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "@vitest/coverage-v8": "^4.0.17",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vue": "^9.20.1",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.2.4",
+    "sass-embedded": "^1.97.2",
+    "typescript": "^5.3.3",
+    "vitest": "4.0.17"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,vue}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@vee-validate/i18n": "^4.15.1",
+    "pinia-plugin-persistedstate": "^4.7.1"
+  }
+}
