@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * App\Models\Order
@@ -46,6 +47,9 @@ class Order extends Model
     protected $table = 'v2_order';
     protected $dateFormat = 'U';
     protected $guarded = ['id'];
+    protected $attributes = [
+        'status' => self::STATUS_PENDING,
+    ];
     protected $casts = [
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
@@ -78,6 +82,84 @@ class Order extends Model
         self::TYPE_RESET_TRAFFIC => '流量重置',
     ];
 
+    protected static function booted()
+    {
+        static::addGlobalScope('sqlite_rowid', function ($builder) {
+            if (DB::getDriverName() === 'sqlite') {
+                $builder->addSelect('*')->addSelect(DB::raw('rowid as sqlite_rowid'));
+            }
+        });
+
+        static::saving(function (self $order) {
+            if (DB::getDriverName() !== 'sqlite') {
+                return;
+            }
+
+            // If the record exists but legacy schema has id=NULL, backfill id from rowid.
+            // We must check the RAW original id; accessor may fall back to sqlite_rowid.
+            $rawOriginalId = method_exists($order, 'getRawOriginal') ? $order->getRawOriginal('id') : $order->getOriginal('id');
+            $rowId = $order->attributes['sqlite_rowid'] ?? null;
+            if ($rowId !== null && $rawOriginalId === null && ($order->attributes['id'] ?? null) === null) {
+                $order->attributes['id'] = (int) $rowId;
+            }
+        });
+
+        static::creating(function (self $order) {
+            if ($order->id !== null) {
+                return;
+            }
+
+            if (DB::getDriverName() !== 'sqlite') {
+                return;
+            }
+
+            $maxId = DB::table('v2_order')->max('id');
+            if ($maxId === null) {
+                $maxRowId = DB::table('v2_order')->max(DB::raw('rowid'));
+                $maxId = $maxRowId ?? 0;
+            }
+
+            $order->id = ((int) $maxId) + 1;
+        });
+    }
+
+    public function getStatusAttribute($value)
+    {
+        return $value === null ? self::STATUS_PENDING : $value;
+    }
+
+    /**
+     * SQLite compatibility: legacy rows may have id=NULL.
+     * When updating such rows, use rowid to target the correct record.
+     */
+    protected function setKeysForSaveQuery($query)
+    {
+        if (DB::getDriverName() === 'sqlite') {
+            $rawOriginalId = method_exists($this, 'getRawOriginal') ? $this->getRawOriginal('id') : $this->getOriginal('id');
+            if ($rawOriginalId === null) {
+                $rowId = $this->getOriginal('sqlite_rowid') ?? ($this->attributes['sqlite_rowid'] ?? null);
+                if ($rowId !== null) {
+                    return $query->whereRaw('rowid = ?', [(int) $rowId]);
+                }
+            }
+        }
+
+        if (DB::getDriverName() === 'sqlite') {
+            // fall through to default behavior
+        }
+
+        return parent::setKeysForSaveQuery($query);
+    }
+
+    public function getIdAttribute($value)
+    {
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->attributes['sqlite_rowid'] ?? null;
+    }
+
     /**
      * 获取与订单关联的支付方式
      */
@@ -108,6 +190,11 @@ class Order extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class, 'plan_id', 'id');
+    }
+
+    public function sharedPlan(): BelongsTo
+    {
+        return $this->belongsTo(SharedPlan::class, 'shared_plan_id', 'id');
     }
 
     /**

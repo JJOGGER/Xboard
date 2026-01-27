@@ -18,6 +18,7 @@ use App\Http\Controllers\V2\Admin\PaymentController;
 use App\Http\Controllers\V2\Admin\SystemController;
 use App\Http\Controllers\V2\Admin\ThemeController;
 use App\Http\Controllers\V2\Admin\TrafficResetController;
+use App\Http\Controllers\V2\Admin\SharedPlanController;
 use Illuminate\Contracts\Routing\Registrar;
 
 class AdminRoute
@@ -49,6 +50,20 @@ class AdminRoute
                 $router->post('/drop', [PlanController::class, 'drop']);
                 $router->post('/update', [PlanController::class, 'update']);
                 $router->post('/sort', [PlanController::class, 'sort']);
+            });
+
+            // Shared Plans (Mazu / new feature)
+            $router->group([
+                'prefix' => 'shared-plans'
+            ], function ($router) {
+                $router->post('/preview', [SharedPlanController::class, 'preview']);
+                $router->post('/import', [SharedPlanController::class, 'import']);
+                $router->get('/', [SharedPlanController::class, 'index']);
+                $router->get('/{id}', [SharedPlanController::class, 'show']);
+                $router->put('/{id}', [SharedPlanController::class, 'update']);
+                $router->delete('/{id}', [SharedPlanController::class, 'destroy']);
+                $router->post('/{id}/sync', [SharedPlanController::class, 'sync']);
+                $router->get('/{id}/sync-logs', [SharedPlanController::class, 'syncLogs']);
             });
 
             // Server
@@ -89,6 +104,7 @@ class AdminRoute
                 'prefix' => 'order'
             ], function ($router) {
                 $router->any('/fetch', [OrderController::class, 'fetch']);
+                $router->get('/stats', [OrderController::class, 'stats']);
                 $router->post('/update', [OrderController::class, 'update']);
                 $router->post('/assign', [OrderController::class, 'assign']);
                 $router->post('/paid', [OrderController::class, 'paid']);

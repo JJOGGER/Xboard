@@ -23,6 +23,16 @@ class OrderResource extends JsonResource
             ...parent::toArray($request),
             'period' => PlanService::getLegacyPeriod((string)$this->period),
             'plan' => $this->whenLoaded('plan', fn() => PlanResource::make($this->plan)),
+            'shared_plan' => $this->whenLoaded('sharedPlan', function () {
+                if (!$this->sharedPlan) {
+                    return null;
+                }
+                return [
+                    'id' => $this->sharedPlan->id,
+                    'name' => $this->sharedPlan->name,
+                    'subscription_format' => $this->sharedPlan->subscription_format,
+                ];
+            }),
         ];
     }
 }

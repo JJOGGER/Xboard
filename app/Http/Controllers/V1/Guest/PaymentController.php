@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Services\OrderService;
 use App\Services\PaymentService;
+use App\Services\Share\ShareOrderService;
 use App\Services\Plugin\PluginManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -133,9 +134,16 @@ class PaymentController extends Controller
         }
         if ($order->status !== Order::STATUS_PENDING)
             return true;
-        $orderService = new OrderService($order);
-        if (!$orderService->paid($callbackNo)) {
-            return false;
+        if (isset($order->plan_type) && $order->plan_type === 'shared') {
+            $shareOrderService = new ShareOrderService($order);
+            if (!$shareOrderService->paid($callbackNo)) {
+                return false;
+            }
+        } else {
+            $orderService = new OrderService($order);
+            if (!$orderService->paid($callbackNo)) {
+                return false;
+            }
         }
 
         HookManager::call('payment.notify.success', $order);

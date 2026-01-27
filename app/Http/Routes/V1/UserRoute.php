@@ -79,6 +79,16 @@ class UserRoute
             $router->get('/knowledge/getCategory', [KnowledgeController::class, 'getCategory']);
             // Stat
             $router->get('/stat/getTrafficLog', [StatController::class, 'getTrafficLog']);
+            // Shared Plans (User)
+            $router->get('/shared-plans', [\App\Http\Controllers\V1\User\SharedPlanController::class, 'index']);
+            $router->get('/shared-plans/subscriptions', [\App\Http\Controllers\V1\User\SharedPlanController::class, 'subscriptions']);
+            
+            // Share Order (共享套餐订单)
+            $router->post('/share-order/save', [\App\Http\Controllers\V1\User\ShareOrderController::class, 'save']);
+            $router->post('/share-order/checkout', [\App\Http\Controllers\V1\User\ShareOrderController::class, 'checkout']);
+            $router->get('/share-order/check', [\App\Http\Controllers\V1\User\ShareOrderController::class, 'check']);
+            $router->get('/share-order/detail', [\App\Http\Controllers\V1\User\ShareOrderController::class, 'detail']);
+            $router->post('/share-order/cancel', [\App\Http\Controllers\V1\User\ShareOrderController::class, 'cancel']);
         });
     }
 }

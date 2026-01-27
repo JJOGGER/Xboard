@@ -91,6 +91,30 @@ Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path
     ]);
 });
 
+Route::get('/mazu/{any?}', function () {
+    $indexPath = public_path('mazu-user/index.html');
+    if (!File::exists($indexPath)) {
+        if (app()->environment('local')) {
+            return redirect('http://localhost:5173');
+        }
+        abort(404);
+    }
+
+    return response()->file($indexPath);
+})->where('any', '.*');
+
+Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/mazu/{any?}', function () {
+    $indexPath = public_path('mazu-admin/index.html');
+    if (!File::exists($indexPath)) {
+        if (app()->environment('local')) {
+            return redirect('http://localhost:5174');
+        }
+        abort(404);
+    }
+
+    return response()->file($indexPath);
+})->where('any', '.*');
+
 Route::get('/' . (admin_setting('subscribe_path', 's')) . '/{token}', [\App\Http\Controllers\V1\Client\ClientController::class, 'subscribe'])
     ->middleware('client')
     ->name('client.subscribe');
