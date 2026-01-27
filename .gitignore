@@ -1,4 +1,5 @@
 /node_modules
+node_modules/
 /config/v2board.php
 /config/googleCloudStorageKey.json
 /public/hot
@@ -9,9 +10,17 @@
 /vendor
 .env
 .env.backup
-.phpunit.result.cache
+/.phpunit.result.cache
 .idea
 .lock
+.vscode/
+.amazonq/
+.kilocode/
+.kiro/
+.phpunit.cache/
+.shared/
+.xboard.pid
+.DS_Store
 Homestead.json
 Homestead.yaml
 npm-debug.log
@@ -20,7 +29,6 @@ composer.phar
 composer.lock
 yarn.lock
 docker-compose.yml
-.DS_Store
 /docker
 storage/laravels.conf
 storage/laravels.pid

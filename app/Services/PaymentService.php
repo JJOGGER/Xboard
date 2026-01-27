@@ -52,7 +52,6 @@ class PaymentService
             } else {
                 $this->config = [];
             }
-            
             $this->config['enable'] = $payment['enable'];
             $this->config['id'] = $payment['id'];
             $this->config['uuid'] = $payment['uuid'];
