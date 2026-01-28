@@ -6,7 +6,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { configApi } from '@xboard/shared';
-import type { SystemConfig, TestEmailData, TestEmailResponse } from '@xboard/shared/src/types/config';
+import type { SystemConfig, TestEmailData, TestEmailResponse } from '@xboard/shared/types/config';
 import { ElMessage } from 'element-plus';
 
 export const useConfigStore = defineStore('config', () => {

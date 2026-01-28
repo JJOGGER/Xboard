@@ -238,7 +238,7 @@ async function handleAdjustBalance(): Promise<void> {
 
   try {
     const action = balanceAdjustment.value > 0 ? t('users.add') : t('users.subtract');
-    const direction = balanceAdjustment.value > 0 ? t('users.to') : t('users.from');
+    const direction = balanceAdjustment.value > 0 ? t('users.toBalance') : t('users.from');
     
     await ElMessageBox.confirm(
       t('users.confirmBalanceAdjustment', {

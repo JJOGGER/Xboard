@@ -856,7 +856,7 @@ export default {
     confirmBalanceAdjustment: '确定要{action}{amount}{direction}此用户的余额吗？',
     add: '增加',
     subtract: '减少',
-    to: '到',
+    toBalance: '到',
     from: '从',
     confirmTrafficTitle: '确认流量调整',
     confirmTrafficAdjustment: '确定要将流量配额设置为 {quota} GB 吗？',

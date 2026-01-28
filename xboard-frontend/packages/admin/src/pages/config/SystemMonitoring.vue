@@ -236,8 +236,8 @@ import {
   Delete,
 } from '@element-plus/icons-vue';
 import { useSystemStore } from '../../stores/system';
-import { formatDateTime } from '@xboard/shared/src/utils/date';
-import type { FailedJob } from '@xboard/shared/src/types/system';
+import { formatDate as formatDateTime } from '@xboard/shared/utils';
+import type { FailedJob } from '@xboard/shared/types/system';
 
 const { t } = useI18n();
 const systemStore = useSystemStore();

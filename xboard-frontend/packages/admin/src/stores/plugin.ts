@@ -6,7 +6,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { pluginApi } from '@xboard/shared';
-import type { Plugin, UploadPluginData, UpdatePluginData } from '@xboard/shared/src/types/plugin';
+import type { Plugin, UploadPluginData, UpdatePluginData } from '@xboard/shared/types/plugin';
 import { ElMessage } from 'element-plus';
 
 export const usePluginStore = defineStore('plugin', () => {

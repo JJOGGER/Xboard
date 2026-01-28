@@ -260,7 +260,7 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Check, Message } from '@element-plus/icons-vue';
 import { useConfigStore } from '../../stores/config';
-import type { SystemConfig } from '@xboard/shared/src/types/config';
+import type { SystemConfig } from '@xboard/shared/types/config';
 
 const { t } = useI18n();
 const configStore = useConfigStore();

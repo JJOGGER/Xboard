@@ -36,7 +36,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { usePluginStore } from '../../stores/plugin';
-import type { Plugin } from '@xboard/shared/src/types/plugin';
+import type { Plugin } from '@xboard/shared/types/plugin';
 
 const { t } = useI18n();
 const pluginStore = usePluginStore();

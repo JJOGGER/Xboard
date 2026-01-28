@@ -110,8 +110,8 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import { usePaymentStore } from '../../stores/payment';
 import PaymentFormModal from '../../components/config/PaymentFormModal.vue';
-import type { PaymentMethod } from '@xboard/shared/src/types/payment';
-import { formatCurrency } from '@xboard/shared/src/utils/number';
+import type { PaymentMethod } from '@xboard/shared/types/payment';
+import { formatCurrency } from '@xboard/shared/utils/number';
 
 const { t } = useI18n();
 const paymentStore = usePaymentStore();

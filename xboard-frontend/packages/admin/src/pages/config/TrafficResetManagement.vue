@@ -200,8 +200,7 @@ import {
   Calendar,
 } from '@element-plus/icons-vue';
 import { useSystemStore } from '../../stores/system';
-import { formatDateTime } from '@xboard/shared/src/utils/date';
-import { formatBytes } from '@xboard/shared/src/utils/number';
+import { formatDate as formatDateTime, formatBytes } from '@xboard/shared/utils';
 
 const { t } = useI18n();
 const systemStore = useSystemStore();

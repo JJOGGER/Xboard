@@ -76,7 +76,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { usePaymentStore } from '../../stores/payment';
-import type { PaymentMethod } from '@xboard/shared/src/types/payment';
+import type { PaymentMethod } from '@xboard/shared/types/payment';
 
 const { t } = useI18n();
 const paymentStore = usePaymentStore();

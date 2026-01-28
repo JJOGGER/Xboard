@@ -32,7 +32,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { useThemeStore } from '../../stores/theme';
-import type { Theme } from '@xboard/shared/src/types/theme';
+import type { Theme } from '@xboard/shared/types/theme';
 
 const { t } = useI18n();
 const themeStore = useThemeStore();

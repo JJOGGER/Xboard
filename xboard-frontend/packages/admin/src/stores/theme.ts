@@ -6,7 +6,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { themeApi } from '@xboard/shared';
-import type { Theme, ThemeConfig, UploadThemeData } from '@xboard/shared/src/types/theme';
+import type { Theme, ThemeConfig, UploadThemeData } from '@xboard/shared/types/theme';
 import { ElMessage } from 'element-plus';
 
 export const useThemeStore = defineStore('theme', () => {

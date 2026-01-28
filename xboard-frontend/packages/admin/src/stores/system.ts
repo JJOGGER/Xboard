@@ -17,8 +17,8 @@ import type {
   TrafficResetStats,
   TrafficResetFilters,
   ManualResetData,
-} from '@xboard/shared/src/types/system';
-import type { PaginationParams } from '@xboard/shared/src/types/api';
+} from '@xboard/shared/types/system';
+import type { PaginationParams } from '@xboard/shared/types/api';
 import { ElMessage } from 'element-plus';
 
 export const useSystemStore = defineStore('system', () => {

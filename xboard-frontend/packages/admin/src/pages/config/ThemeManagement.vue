@@ -138,7 +138,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Upload, UploadFilled, Picture, User, Document } from '@element-plus/icons-vue';
 import { useThemeStore } from '../../stores/theme';
 import ThemeConfigModal from '../../components/config/ThemeConfigModal.vue';
-import type { Theme } from '@xboard/shared/src/types/theme';
+import type { Theme } from '@xboard/shared/types/theme';
 import type { UploadFile } from 'element-plus';
 
 const { t } = useI18n();

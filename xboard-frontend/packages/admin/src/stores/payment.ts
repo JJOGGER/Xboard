@@ -6,7 +6,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { paymentApi } from '@xboard/shared';
-import type { PaymentMethod } from '@xboard/shared/src/types/payment';
+import type { PaymentMethod } from '@xboard/shared/types/payment';
 import { ElMessage } from 'element-plus';
 
 export const usePaymentStore = defineStore('payment', () => {

@@ -149,7 +149,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Upload, UploadFilled } from '@element-plus/icons-vue';
 import { usePluginStore } from '../../stores/plugin';
 import PluginConfigModal from '../../components/config/PluginConfigModal.vue';
-import type { Plugin } from '@xboard/shared/src/types/plugin';
+import type { Plugin } from '@xboard/shared/types/plugin';
 import type { UploadFile } from 'element-plus';
 
 const { t } = useI18n();
