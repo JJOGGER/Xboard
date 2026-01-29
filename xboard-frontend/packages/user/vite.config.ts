@@ -78,9 +78,9 @@ export default defineConfig({
             return 'pinia'
           }
           
-          // Naive UI - keep in a single chunk to avoid circular chunk/runtime init issues
-          // Also include Naive UI's core dependency set, otherwise Rollup may split them
-          // into separate chunks (e.g. *_styles) and cause TDZ errors.
+          // Naive UI - keep in a single chunk to avoid circular chunk/runtime init issues.
+          // Empirically, splitting Naive UI away from other vendor deps can still create
+          // execution-order cycles (TDZ errors). So we bundle Naive UI into the main vendor chunk.
           if (
             id.includes('node_modules/naive-ui') ||
             id.includes('node_modules/css-render') ||
@@ -91,7 +91,7 @@ export default defineConfig({
             id.includes('node_modules/vdirs') ||
             id.includes('node_modules/seemly')
           ) {
-            return 'naive-ui'
+            return 'vendor'
           }
           
           // Charts library
