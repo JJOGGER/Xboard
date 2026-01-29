@@ -5,6 +5,8 @@ node_modules/
 /public/hot
 /public/storage
 /public/env.example.js
+/public/admin-frontend/
+/public/user-frontend/
 /.well-known/acme-challenge/
 /public/.well-known/acme-challenge/
 *.user.ini

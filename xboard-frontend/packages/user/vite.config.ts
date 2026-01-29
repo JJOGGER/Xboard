@@ -78,19 +78,9 @@ export default defineConfig({
             return 'pinia'
           }
           
-          // Naive UI - split into smaller chunks
+          // Naive UI - keep in a single chunk to avoid circular chunk/runtime init issues
           if (id.includes('node_modules/naive-ui')) {
-            // Split Naive UI components
-            if (id.includes('/es/')) {
-              const parts = id.split('/es/')
-              if (parts[1]) {
-                const componentName = parts[1].split('/')[0]
-                if (componentName && componentName !== 'index') {
-                  return `naive-ui-${componentName}`
-                }
-              }
-            }
-            return 'naive-ui-core'
+            return 'naive-ui'
           }
           
           // Charts library
