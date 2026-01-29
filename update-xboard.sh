@@ -137,8 +137,21 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "$CURRENT_BRANCH" != "mazu" ]; then
+    echo -e "${BLUE}切换到 mazu 分支...${NC}"
+    if git show-ref --verify --quiet "refs/heads/mazu"; then
+        git checkout mazu
+    elif git show-ref --verify --quiet "refs/remotes/origin/mazu"; then
+        git checkout -b mazu origin/mazu
+    else
+        echo -e "${RED}✗ 远端不存在 mazu 分支${NC}"
+        exit 1
+    fi
+fi
+
 echo "正在合并更改..."
-git pull origin mazu
+git pull --rebase origin mazu
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ Git pull 失败${NC}"

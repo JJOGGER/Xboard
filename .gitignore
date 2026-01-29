@@ -5,6 +5,8 @@ node_modules/
 /public/hot
 /public/storage
 /public/env.example.js
+/.well-known/acme-challenge/
+/public/.well-known/acme-challenge/
 *.user.ini
 /storage/*.key
 /vendor

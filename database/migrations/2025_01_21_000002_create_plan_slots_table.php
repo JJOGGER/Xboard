@@ -16,7 +16,7 @@ return new class extends Migration
             
             // 关联信息
             $table->unsignedBigInteger('shared_plan_id')->comment('共享套餐ID');
-            $table->unsignedBigInteger('user_id')->comment('用户ID');
+            $table->integer('user_id')->comment('用户ID');
             $table->unsignedBigInteger('order_id')->nullable()->comment('订单ID');
             
             // 订阅token
