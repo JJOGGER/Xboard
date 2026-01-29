@@ -12,7 +12,7 @@ try {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? './' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/user/' : '/',
   plugins: [
     vue(),
     // Image optimization plugin (optional)
@@ -138,13 +138,6 @@ export default defineConfig({
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       }
     },
-    // Enable minification
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remove console.log in production
-        drop_debugger: true
-      }
-    }
+    minify: 'esbuild'
   }
 })
