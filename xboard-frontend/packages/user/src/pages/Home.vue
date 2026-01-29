@@ -324,27 +324,19 @@ const pricingPlans = computed(() => {
 const fetchPlans = async () => {
   plansLoading.value = true
   try {
-    // 获取共享套餐而不是普通套餐
-    const response = await fetch('/api/v1/guest/shared-plans')
+    const response = await planApi.getPlans()
 
-    if (!response.ok) {
-      const text = await response.text()
-      console.error('Failed to fetch shared plans:', response.status, response.statusText)
-      console.error('Response body:', text)
-      plans.value = []
-      return
-    }
-
-    const result = await response.json()
-    
-    if (result.status === 'success') {
-      plans.value = result.data.data || result.data || []
+    const result: any = response?.data
+    if (result?.status === 'success') {
+      plans.value = result?.data?.data || result?.data || []
+    } else if (result?.data) {
+      plans.value = result.data
     } else {
-      console.error('Failed to fetch shared plans:', result.message)
+      console.error('Failed to fetch plans:', result?.message)
       plans.value = []
     }
   } catch (error) {
-    console.error('Failed to fetch shared plans:', error)
+    console.error('Failed to fetch plans:', error)
     plans.value = []
   } finally {
     plansLoading.value = false
