@@ -71,16 +71,10 @@ export default defineConfig({
             return 'pinia'
           }
           
-          // Element Plus - split into smaller chunks
-          if (id.includes('node_modules/element-plus')) {
-            // Split Element Plus components
-            if (id.includes('/es/components/')) {
-              const componentName = id.split('/es/components/')[1]?.split('/')[0]
-              if (componentName) {
-                return `element-plus-${componentName}`
-              }
-            }
-            return 'element-plus-core'
+          // Element Plus - single chunk
+          if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus/icons-vue')) {
+            // Keep Element Plus in a single chunk to avoid cross-chunk circular init issues (TDZ errors)
+            return 'element-plus'
           }
           
           // Charts library
@@ -105,11 +99,6 @@ export default defineConfig({
           }
           if (id.includes('node_modules/lodash-es')) {
             return 'lodash'
-          }
-          
-          // Icons
-          if (id.includes('node_modules/@element-plus/icons-vue')) {
-            return 'element-icons'
           }
           
           // Shared package
