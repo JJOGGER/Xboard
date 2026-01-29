@@ -79,7 +79,18 @@ export default defineConfig({
           }
           
           // Naive UI - keep in a single chunk to avoid circular chunk/runtime init issues
-          if (id.includes('node_modules/naive-ui')) {
+          // Also include Naive UI's core dependency set, otherwise Rollup may split them
+          // into separate chunks (e.g. *_styles) and cause TDZ errors.
+          if (
+            id.includes('node_modules/naive-ui') ||
+            id.includes('node_modules/css-render') ||
+            id.includes('node_modules/@css-render') ||
+            id.includes('node_modules/evtd') ||
+            id.includes('node_modules/treemate') ||
+            id.includes('node_modules/vooks') ||
+            id.includes('node_modules/vdirs') ||
+            id.includes('node_modules/seemly')
+          ) {
             return 'naive-ui'
           }
           
