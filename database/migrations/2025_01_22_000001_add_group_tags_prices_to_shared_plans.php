@@ -22,7 +22,7 @@ return new class extends Migration
         // Step 1: Add new columns
         Schema::table('v2_shared_plans', function (Blueprint $table) {
             // Add group_id column (nullable to allow plans without group restrictions)
-            $table->unsignedBigInteger('group_id')
+            $table->integer('group_id')
                 ->nullable()
                 ->after('name')
                 ->comment('权限组ID');
