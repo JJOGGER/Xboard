@@ -6,6 +6,21 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosError, type CancelTokenSource } from 'axios';
 import type { ApiResponse, ApiError, ErrorResponse } from '../types';
 
+type RuntimeSettings = {
+  base_url?: string;
+  secure_path?: string;
+};
+
+function getRuntimeSettings(): RuntimeSettings | undefined {
+  return (globalThis as any)?.window?.settings as RuntimeSettings | undefined;
+}
+
+function joinUrl(base: string, path: string): string {
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
+}
+
 export interface ApiClientConfig {
   baseURL: string;
   timeout: number;
@@ -115,7 +130,8 @@ class ApiClient {
           const isPublicRoute = publicRoutes.some(route => config.url!.startsWith(route));
           
           // Only add secure_path if it's NOT a public route AND secure_path is configured
-          const securePath = import.meta.env.VITE_SECURE_PATH;
+          const runtimeSecurePath = getRuntimeSettings()?.secure_path;
+          const securePath = runtimeSecurePath || import.meta.env.VITE_SECURE_PATH;
           if (!isPublicRoute && typeof securePath === 'string' && securePath.length > 0) {
             console.log('[API Client] Adding secure_path to admin route:', config.url);
             // Insert secure_path after /v2/
@@ -307,7 +323,14 @@ class ApiClient {
 
 // Create and export default API client instance
 const apiClient = new ApiClient({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: (() => {
+    const apiPath = import.meta.env.VITE_API_BASE_URL || '/api';
+    const runtimeBaseUrl = getRuntimeSettings()?.base_url;
+    if (typeof runtimeBaseUrl === 'string' && runtimeBaseUrl.length > 0) {
+      return joinUrl(runtimeBaseUrl, apiPath);
+    }
+    return apiPath;
+  })(),
   timeout: 30000, // 30 seconds
   withCredentials: false,
 });
