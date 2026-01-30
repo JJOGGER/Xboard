@@ -103,6 +103,10 @@ Route::get('/mazu/{any?}', function () {
     return response()->file($indexPath);
 })->where('any', '.*');
 
+Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/mazu', function () {
+    return redirect('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/mazu/');
+});
+
 Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/mazu/{any?}', function () {
     $indexPath = public_path('mazu-admin/index.html');
     if (!File::exists($indexPath)) {
