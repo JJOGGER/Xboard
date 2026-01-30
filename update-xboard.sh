@@ -406,81 +406,13 @@ echo ""
 echo -e "${BLUE}[步骤 7] 重启 Octane 服务${NC}"
 echo "----------------------------------------"
 
-# 检查 Octane 是否在运行
-OCTANE_RUNNING=false
-if pgrep -f "octane:start" >/dev/null 2>&1; then
-    OCTANE_RUNNING=true
-    echo -e "${YELLOW}检测到 Octane 正在运行，准备重启...${NC}"
-fi
-
-# 检查端口是否被占用
-PORT_IN_USE=false
-if netstat -tuln 2>/dev/null | grep -q ":7001" || ss -tuln 2>/dev/null | grep -q ":7001"; then
-    PORT_IN_USE=true
-fi
-
-if [ "$OCTANE_RUNNING" = true ] || [ "$PORT_IN_USE" = true ]; then
-    echo "停止现有 Octane 进程..."
-    
-    # 尝试优雅停止
-    pkill -f "octane:start" 2>/dev/null || true
-    
-    # 如果端口仍被占用，查找并强制停止
-    if [ "$PORT_IN_USE" = true ]; then
-        sleep 2
-        if netstat -tuln 2>/dev/null | grep -q ":7001" || ss -tuln 2>/dev/null | grep -q ":7001"; then
-            echo "端口仍被占用，查找占用进程..."
-            # 尝试使用 fuser 或 lsof
-            if command -v fuser >/dev/null 2>&1; then
-                fuser -k 7001/tcp 2>/dev/null || true
-            elif command -v lsof >/dev/null 2>&1; then
-                lsof -ti :7001 | xargs kill -9 2>/dev/null || true
-            else
-                # 查找 swoole 相关进程
-                for pid in $(ps aux | grep '[s]woole\|[o]ctane' | awk '{print $2}'); do
-                    kill -9 $pid 2>/dev/null || true
-                done
-            fi
-            sleep 2
-        fi
-    fi
-    
-    echo -e "${GREEN}✓ Octane 已停止${NC}"
-fi
-
-# 确定 PHP 可执行文件路径
-PHP_BIN="php"
-if [ -f "/www/server/php/82/bin/php" ]; then
-    PHP_BIN="/www/server/php/82/bin/php"
-elif [ -f "/usr/bin/php82" ]; then
-    PHP_BIN="/usr/bin/php82"
-fi
-
-# 启动 Octane
-echo "启动 Octane..."
-$PHP_BIN artisan octane:start --server=swoole --host=0.0.0.0 --port=7001 >/tmp/octane.log 2>&1 &
-
-# 等待启动
-sleep 3
-
-# 验证启动
-if pgrep -f "octane:start" >/dev/null 2>&1; then
-    OCTANE_PID=$(pgrep -f "octane:start" | head -1)
-    echo -e "${GREEN}✓ Octane 启动成功 (PID: $OCTANE_PID)${NC}"
-    
-    # 验证端口
-    if netstat -tuln 2>/dev/null | grep -q ":7001" || ss -tuln 2>/dev/null | grep -q ":7001"; then
-        echo -e "${GREEN}✓ 端口 7001 正在监听${NC}"
-    else
-        echo -e "${YELLOW}⚠ 端口 7001 未监听，请检查日志${NC}"
-    fi
-else
-    echo -e "${YELLOW}⚠ Octane 启动可能失败，查看日志：${NC}"
-    echo "  tail -n 30 /tmp/octane.log"
-    echo ""
-    echo "如果使用 Supervisor 管理 Octane，请手动重启："
-    echo "  supervisorctl restart xboard-octane"
-fi
+echo -e "${YELLOW}⚠ 已跳过 Octane 重启${NC}"
+echo "  当前环境使用 aaPanel/应用商店 + Supervisor 管理 Octane。"
+echo "  为避免端口占用与进程冲突，本脚本不再 stop/start Octane。"
+echo ""
+echo "  请在 aaPanel 面板手动重启 Octane（推荐）"
+echo "  或者执行（以你的 Supervisor program 名称为准）："
+echo "    supervisorctl restart xboard-octane"
 
 echo ""
 echo -e "${BLUE}[步骤 8] 设置文件权限${NC}"

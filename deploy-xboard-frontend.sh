@@ -8,6 +8,8 @@ set -euo pipefail
 NODE_VERSION="${NODE_VERSION:-20.11.1}"                                # 需要安装/使用的 Node.js 版本
 XBOARD_ROOT="${XBOARD_ROOT:-/www/wwwroot/mazu}"                        # XBoard 项目根目录
 PROJECT_DIR="${PROJECT_DIR:-${XBOARD_ROOT}/xboard-frontend}"           # xboard-frontend 源码目录
+UPDATE_CODE="${UPDATE_CODE:-true}"                                     # true=构建前自动拉取最新代码
+TARGET_BRANCH="${TARGET_BRANCH:-mazu}"                                 # 需要拉取的分支
 ADMIN_DIST_DIR="${ADMIN_DIST_DIR:-${XBOARD_ROOT}/public/mazu-admin}" # Admin 前端发布目录
 USER_DIST_DIR="${USER_DIST_DIR:-${XBOARD_ROOT}/public/mazu-user}"   # User 前端发布目录
 KEEP_NODE_ARCHIVE="${KEEP_NODE_ARCHIVE:-false}"                        # 设置为 true 可缓存 Node 安装包
@@ -115,7 +117,33 @@ fi
 cd "$PROJECT_DIR"
 log "工作目录: $PROJECT_DIR"
 
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 && log "当前 Git 分支：$(git rev-parse --abbrev-ref HEAD)"
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    log "当前 Git 分支：$(git rev-parse --abbrev-ref HEAD)"
+
+    if [ "$UPDATE_CODE" = "true" ]; then
+        log "更新代码: 拉取 origin/${TARGET_BRANCH}"
+        git fetch origin "$TARGET_BRANCH" || git fetch origin
+
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
+            log "切换到 ${TARGET_BRANCH} 分支"
+            if git show-ref --verify --quiet "refs/heads/${TARGET_BRANCH}"; then
+                git checkout "$TARGET_BRANCH"
+            elif git show-ref --verify --quiet "refs/remotes/origin/${TARGET_BRANCH}"; then
+                git checkout -b "$TARGET_BRANCH" "origin/${TARGET_BRANCH}"
+            else
+                die "远端不存在 ${TARGET_BRANCH} 分支"
+            fi
+        fi
+
+        git pull --rebase origin "$TARGET_BRANCH" || die "git pull 失败"
+        log "✓ 代码已更新到最新"
+    else
+        log "跳过代码更新: UPDATE_CODE=false"
+    fi
+else
+    log "⚠ 当前目录不是 Git 仓库，将跳过代码更新"
+fi
 
 # ===== 4. .env 检查 =====
 setup_env_file() {
