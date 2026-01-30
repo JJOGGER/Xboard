@@ -121,6 +121,37 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     log "当前 Git 分支：$(git rev-parse --abbrev-ref HEAD)"
 
     if [ "$UPDATE_CODE" = "true" ]; then
+        # If there are local changes, decide how to handle them before pull --rebase.
+        STASH_APPLY=false
+        if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+            log "⚠ 检测到未提交的本地更改"
+            git status --short || true
+            echo ""
+            read -p "如何处理? (1=暂存并继续, 2=放弃更改, 3=取消): " HANDLE_CHANGES
+            case $HANDLE_CHANGES in
+                1)
+                    log "暂存本地更改 (git stash)"
+                    git stash
+                    STASH_APPLY=true
+                    ;;
+                2)
+                    log "⚠ 放弃所有本地更改（谨慎操作！）"
+                    read -p "确认? (yes/no): " CONFIRM_RESET
+                    if [ "$CONFIRM_RESET" = "yes" ]; then
+                        git reset --hard HEAD
+                    else
+                        die "取消更新"
+                    fi
+                    ;;
+                3)
+                    die "取消更新"
+                    ;;
+                *)
+                    die "无效选择，取消更新"
+                    ;;
+            esac
+        fi
+
         log "更新代码: 拉取 origin/${TARGET_BRANCH}"
         git fetch origin "$TARGET_BRANCH" || git fetch origin
 
@@ -137,6 +168,11 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         fi
 
         git pull --rebase origin "$TARGET_BRANCH" || die "git pull 失败"
+
+        if [ "$STASH_APPLY" = "true" ]; then
+            log "恢复之前暂存的更改 (git stash pop)"
+            git stash pop || true
+        fi
         log "✓ 代码已更新到最新"
     else
         log "跳过代码更新: UPDATE_CODE=false"
