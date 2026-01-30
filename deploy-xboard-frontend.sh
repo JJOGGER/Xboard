@@ -8,8 +8,8 @@ set -euo pipefail
 NODE_VERSION="${NODE_VERSION:-20.11.1}"                                # 需要安装/使用的 Node.js 版本
 XBOARD_ROOT="${XBOARD_ROOT:-/www/wwwroot/mazu}"                        # XBoard 项目根目录
 PROJECT_DIR="${PROJECT_DIR:-${XBOARD_ROOT}/xboard-frontend}"           # xboard-frontend 源码目录
-ADMIN_DIST_DIR="${ADMIN_DIST_DIR:-${XBOARD_ROOT}/public/admin-frontend}" # Admin 前端发布目录
-USER_DIST_DIR="${USER_DIST_DIR:-${XBOARD_ROOT}/public/user-frontend}"   # User 前端发布目录
+ADMIN_DIST_DIR="${ADMIN_DIST_DIR:-${XBOARD_ROOT}/public/mazu-admin}" # Admin 前端发布目录
+USER_DIST_DIR="${USER_DIST_DIR:-${XBOARD_ROOT}/public/mazu-user}"   # User 前端发布目录
 KEEP_NODE_ARCHIVE="${KEEP_NODE_ARCHIVE:-false}"                        # 设置为 true 可缓存 Node 安装包
 PNPM_VERSION="${PNPM_VERSION:-9.12.0}"
 BUILD_MODE="${BUILD_MODE:-relaxed}"                                    # relaxed=strict typecheck off, strict=run vue-tsc
