@@ -9,6 +9,8 @@ declare module '*.vue' {
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
+  readonly MODE: string
+  readonly PROD?: boolean
   // Add more env variables as needed
 }
 

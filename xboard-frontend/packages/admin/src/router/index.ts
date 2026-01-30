@@ -1,6 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import type { RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+
+function getAdminRouterBase(): string {
+  if (import.meta.env.MODE !== 'production') return '/'
+  const securePath = (globalThis as any)?.window?.settings?.secure_path
+  if (typeof securePath === 'string' && securePath.length > 0) {
+    return `/${securePath}/mazu/`
+  }
+  return '/admin-v2/'
+}
 
 const routes: RouteRecordRaw[] = [
   {
@@ -145,12 +154,12 @@ const routes: RouteRecordRaw[] = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.PROD ? '/admin-v2' : '/'), // Only use /admin-v2 in production
+  history: createWebHistory(getAdminRouterBase()),
   routes
 })
 
 // Navigation guard for authentication
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
   const authStore = useAuthStore()
   
   // Check if route requires authentication

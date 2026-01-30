@@ -5,7 +5,8 @@ import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/admin/' : '/',
+  // Use relative base in production so the build can be hosted under dynamic paths like /{secure_path}/mazu/
+  base: process.env.NODE_ENV === 'production' ? './' : '/',
   plugins: [
     vue(),
     // Image optimization plugin - commented out for E2E tests
