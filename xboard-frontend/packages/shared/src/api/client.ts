@@ -25,6 +25,14 @@ function getSecurePathFromLocationPathname(): string | undefined {
   return undefined;
 }
 
+function isAdminContextPathname(): boolean {
+  if (typeof window === 'undefined') return false;
+  const pathname = window.location.pathname;
+  if (pathname.startsWith('/admin-v2/')) return true;
+  if (/^\/[\w-]+\/(?:mazu|admin)(?:\/|$)/.test(pathname)) return true;
+  return false;
+}
+
 function getRuntimeSettings(): RuntimeSettings | undefined {
   return (globalThis as any)?.window?.settings as RuntimeSettings | undefined;
 }
@@ -125,7 +133,7 @@ class ApiClient {
         // V2 admin routes require secure_path: /api/v2/{secure_path}/*
         // IMPORTANT: only enable this behavior when VITE_SECURE_PATH is explicitly provided.
         // User app does not set VITE_SECURE_PATH and must NOT have secure_path injected.
-        if (config.url && config.url.startsWith('/v2/')) {
+        if (config.url && config.url.startsWith('/v2/') && isAdminContextPathname()) {
           // Public routes that don't need secure_path
           const publicRoutes = [
             '/v2/passport/',           // Authentication routes
