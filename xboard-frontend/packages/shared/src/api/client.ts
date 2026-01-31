@@ -11,6 +11,10 @@ type RuntimeSettings = {
   secure_path?: string;
 };
 
+function normalizeSecurePath(value: string): string {
+  return value.replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
 function getSecurePathFromLocationPathname(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   const pathname = window.location.pathname;
@@ -145,10 +149,11 @@ class ApiClient {
           // Only add secure_path if it's NOT a public route AND secure_path is configured
           const runtimeSecurePath = getRuntimeSettings()?.secure_path;
           const securePath = runtimeSecurePath || getSecurePathFromLocationPathname() || import.meta.env.VITE_SECURE_PATH;
-          if (!isPublicRoute && !isAlreadySecureScoped && typeof securePath === 'string' && securePath.length > 0) {
+          const normalizedSecurePath = typeof securePath === 'string' ? normalizeSecurePath(securePath) : '';
+          if (!isPublicRoute && !isAlreadySecureScoped && normalizedSecurePath.length > 0) {
             console.log('[API Client] Adding secure_path to admin route:', config.url);
             // Insert secure_path after /v2/
-            config.url = config.url.replace('/v2/', `/v2/${securePath}/`);
+            config.url = config.url.replace('/v2/', `/v2/${normalizedSecurePath}/`);
           }
         }
 

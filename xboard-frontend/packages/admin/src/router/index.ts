@@ -2,11 +2,15 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
- function getSecurePathFromLocationPathname(): string | undefined {
-   if (typeof window === 'undefined') return undefined
-   const match = window.location.pathname.match(/^\/([\w-]+)\/mazu(?:\/|$)/)
-   return match?.[1]
- }
+function getSecurePathFromLocationPathname(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  const match = window.location.pathname.match(/^\/([\w-]+)\/mazu(?:\/|$)/)
+  return match?.[1]
+}
+
+function normalizeSecurePath(value: string): string {
+  return value.replace(/^\/+/, '').replace(/\/+$/, '')
+}
 
 function getAdminRouterBase(): string {
   if (import.meta.env.MODE !== 'production') return '/'
@@ -15,11 +19,11 @@ function getAdminRouterBase(): string {
   }
   const securePath = (globalThis as any)?.window?.settings?.secure_path
   if (typeof securePath === 'string' && securePath.length > 0) {
-    return `/${securePath}/mazu/`
+    return `/${normalizeSecurePath(securePath)}/mazu/`
   }
   const securePathFromPathname = getSecurePathFromLocationPathname()
   if (typeof securePathFromPathname === 'string' && securePathFromPathname.length > 0) {
-    return `/${securePathFromPathname}/mazu/`
+    return `/${normalizeSecurePath(securePathFromPathname)}/mazu/`
   }
   return '/admin-v2/'
 }

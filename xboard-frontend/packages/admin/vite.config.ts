@@ -4,9 +4,9 @@ import { resolve } from 'path'
 // import viteImagemin from 'vite-plugin-imagemin'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   // Use relative base in production so the build can be hosted under dynamic paths like /{secure_path}/mazu/
-  base: process.env.NODE_ENV === 'production' ? './' : '/',
+  base: mode === 'production' ? './' : '/',
   plugins: [
     vue(),
     // Image optimization plugin - commented out for E2E tests
@@ -120,4 +120,4 @@ export default defineConfig({
     },
     minify: 'esbuild'
   }
-})
+}))
