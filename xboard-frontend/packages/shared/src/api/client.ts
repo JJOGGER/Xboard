@@ -143,13 +143,17 @@ class ApiClient {
           
           const isPublicRoute = publicRoutes.some(route => config.url!.startsWith(route));
 
-          // If a caller already provided /v2/{secure_path}/..., do not inject again.
-          const isAlreadySecureScoped = /^\/v2\/[\w-]+\//.test(config.url);
-          
           // Only add secure_path if it's NOT a public route AND secure_path is configured
           const runtimeSecurePath = getRuntimeSettings()?.secure_path;
           const securePath = runtimeSecurePath || getSecurePathFromLocationPathname() || import.meta.env.VITE_SECURE_PATH;
           const normalizedSecurePath = typeof securePath === 'string' ? normalizeSecurePath(securePath) : '';
+
+          // If a caller already provided /v2/{secure_path}/..., do not inject again.
+          // NOTE: do not treat '/v2/stat/...' (or other admin modules) as already scoped.
+          const isAlreadySecureScoped =
+            normalizedSecurePath.length > 0 &&
+            config.url!.startsWith(`/v2/${normalizedSecurePath}/`);
+          
           if (!isPublicRoute && !isAlreadySecureScoped && normalizedSecurePath.length > 0) {
             console.log('[API Client] Adding secure_path to admin route:', config.url);
             // Insert secure_path after /v2/
