@@ -2,11 +2,24 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
+ function getSecurePathFromLocationPathname(): string | undefined {
+   if (typeof window === 'undefined') return undefined
+   const match = window.location.pathname.match(/^\/([\w-]+)\/mazu(?:\/|$)/)
+   return match?.[1]
+ }
+
 function getAdminRouterBase(): string {
   if (import.meta.env.MODE !== 'production') return '/'
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin-v2/')) {
+    return '/admin-v2/'
+  }
   const securePath = (globalThis as any)?.window?.settings?.secure_path
   if (typeof securePath === 'string' && securePath.length > 0) {
     return `/${securePath}/mazu/`
+  }
+  const securePathFromPathname = getSecurePathFromLocationPathname()
+  if (typeof securePathFromPathname === 'string' && securePathFromPathname.length > 0) {
+    return `/${securePathFromPathname}/mazu/`
   }
   return '/admin-v2/'
 }

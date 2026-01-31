@@ -11,6 +11,16 @@ type RuntimeSettings = {
   secure_path?: string;
 };
 
+function getSecurePathFromLocationPathname(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const pathname = window.location.pathname;
+  const mazuMatch = pathname.match(/^\/([\w-]+)\/mazu(?:\/|$)/);
+  if (mazuMatch?.[1]) return mazuMatch[1];
+  const adminMatch = pathname.match(/^\/([\w-]+)\/admin(?:\/|$)/);
+  if (adminMatch?.[1]) return adminMatch[1];
+  return undefined;
+}
+
 function getRuntimeSettings(): RuntimeSettings | undefined {
   return (globalThis as any)?.window?.settings as RuntimeSettings | undefined;
 }
@@ -128,11 +138,14 @@ class ApiClient {
           ];
           
           const isPublicRoute = publicRoutes.some(route => config.url!.startsWith(route));
+
+          // If a caller already provided /v2/{secure_path}/..., do not inject again.
+          const isAlreadySecureScoped = /^\/v2\/[\w-]+\//.test(config.url);
           
           // Only add secure_path if it's NOT a public route AND secure_path is configured
           const runtimeSecurePath = getRuntimeSettings()?.secure_path;
-          const securePath = runtimeSecurePath || import.meta.env.VITE_SECURE_PATH;
-          if (!isPublicRoute && typeof securePath === 'string' && securePath.length > 0) {
+          const securePath = runtimeSecurePath || getSecurePathFromLocationPathname() || import.meta.env.VITE_SECURE_PATH;
+          if (!isPublicRoute && !isAlreadySecureScoped && typeof securePath === 'string' && securePath.length > 0) {
             console.log('[API Client] Adding secure_path to admin route:', config.url);
             // Insert secure_path after /v2/
             config.url = config.url.replace('/v2/', `/v2/${securePath}/`);
