@@ -122,3 +122,15 @@ Route::get('/mazu/{any?}', function () {
 
     return response()->file($indexPath);
 })->where('any', '.*');
+
+Route::get('/user/{any?}', function () {
+    $indexPath = public_path('user/index.html');
+    if (!File::exists($indexPath)) {
+        if (app()->environment('local')) {
+            return redirect('http://localhost:5173');
+        }
+        abort(404);
+    }
+
+    return response()->file($indexPath);
+})->where('any', '.*');

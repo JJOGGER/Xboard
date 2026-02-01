@@ -114,7 +114,12 @@ class ShareOrderController extends Controller
             $shareOrderService = new ShareOrderService($order);
             $result = $shareOrderService->checkout($method, $request->input('token') ?? null);
 
-            return $this->success($result);
+            // Keep response format compatible with legacy client checkout response.
+            // Legacy clients expect {type, data} (and optionally trade_no) without the standard success wrapper.
+            if (is_array($result)) {
+                return response($result);
+            }
+            return response(["type" => 1, "data" => $result]);
         } catch (\Exception $e) {
             Log::error('Payment failed for shared plan order', [
                 'trade_no' => $tradeNo,
@@ -146,11 +151,8 @@ class ShareOrderController extends Controller
             return $this->fail([400, __('Order does not exist')]);
         }
 
-        return $this->success([
-            'trade_no' => $order->trade_no,
-            'status' => $order->status,
-            'total_amount' => $order->total_amount,
-        ]);
+        // Keep response compatible with legacy polling: just return the status int.
+        return $this->success($order->status);
     }
 
     /**
@@ -172,16 +174,40 @@ class ShareOrderController extends Controller
             })
             ->firstOrFail();
 
+        $sharedPlan = $order->sharedPlan;
+        $transferEnableGb = null;
+        if ($sharedPlan && $sharedPlan->total_traffic !== null) {
+            $transferEnableGb = (int) floor(((int) $sharedPlan->total_traffic) / 1024 / 1024 / 1024);
+        }
+
         return $this->success([
+            // Fields required by MaClash OrderDetailResponse
             'trade_no' => $order->trade_no,
             'status' => $order->status,
             'total_amount' => $order->total_amount,
             'period' => $order->period,
-            'created_at' => $order->created_at,
-            'shared_plan' => $order->sharedPlan ? [
-                'id' => $order->sharedPlan->id,
-                'name' => $order->sharedPlan->name,
-                'subscription_format' => $order->sharedPlan->subscription_format,
+            'created_at' => $order->created_at ? $order->created_at->timestamp : null,
+            'updated_at' => $order->updated_at ? $order->updated_at->timestamp : null,
+
+            // Keep legacy plan_id + plan object shape so existing UI can reuse PlanInfoCard / PriceDetailCard.
+            'plan_id' => $sharedPlan ? $sharedPlan->id : ($order->shared_plan_id ?? 0),
+            'plan' => $sharedPlan ? [
+                'id' => $sharedPlan->id,
+                'name' => $sharedPlan->name,
+                // Legacy UI treats this as GB. If shared plan has total_traffic, convert bytes->GB; otherwise mark as "unlimited".
+                'transfer_enable' => $transferEnableGb === null ? PHP_INT_MAX : $transferEnableGb,
+            ] : null,
+
+            // Optional amounts used by legacy UI for price breakdown
+            'discount_amount' => $order->discount_amount ?? 0,
+            'balance_amount' => $order->balance_amount ?? 0,
+            'surplus_amount' => $order->surplus_amount ?? 0,
+
+            // Keep shared_plan for new frontends
+            'shared_plan' => $sharedPlan ? [
+                'id' => $sharedPlan->id,
+                'name' => $sharedPlan->name,
+                'subscription_format' => $sharedPlan->subscription_format,
             ] : null,
         ]);
     }
