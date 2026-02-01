@@ -69,8 +69,6 @@ return [
 
     'api_domain' => env('API_DOMAIN', null),
     
-    'admin2_domain' => env('ADMIN2_DOMAIN', null),
-    
     /*
     |--------------------------------------------------------------------------
     | V2bX Server API Domain Configuration

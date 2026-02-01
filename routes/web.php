@@ -72,27 +72,6 @@ Route::get('/', function (Request $request) {
 
 //TODO:: 兼容
 Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))), function (Request $request) {
-    $admin2Domain = config('app.admin2_domain');
-    $admin2Host = null;
-    if ($admin2Domain) {
-        $admin2Host = parse_url($admin2Domain, PHP_URL_HOST);
-        if (!$admin2Host) {
-            $admin2Host = $admin2Domain;
-        }
-    }
-
-    if ($admin2Host && $request->getHost() === $admin2Host) {
-        $indexPath = public_path('mazu-admin/index.html');
-        if (!File::exists($indexPath)) {
-            if (app()->environment('local')) {
-                return redirect('http://localhost:5174');
-            }
-            abort(404);
-        }
-
-        return response()->file($indexPath);
-    }
-
     try {
         $version = app(UpdateService::class)->getCurrentVersion();
     } catch (\Exception $e) {
@@ -111,18 +90,6 @@ Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path
         'secure_path' => admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key'))))
     ]);
 });
-
-Route::get('/mazu/{any?}', function () {
-    $indexPath = public_path('mazu-user/index.html');
-    if (!File::exists($indexPath)) {
-        if (app()->environment('local')) {
-            return redirect('http://localhost:5173');
-        }
-        abort(404);
-    }
-
-    return response()->file($indexPath);
-})->where('any', '.*');
 
 Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/mazu', function () {
     return redirect('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/mazu/');
@@ -143,3 +110,15 @@ Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path
 Route::get('/' . (admin_setting('subscribe_path', 's')) . '/{token}', [\App\Http\Controllers\V1\Client\ClientController::class, 'subscribe'])
     ->middleware('client')
     ->name('client.subscribe');
+
+Route::get('/mazu/{any?}', function () {
+    $indexPath = public_path('mazu-user/index.html');
+    if (!File::exists($indexPath)) {
+        if (app()->environment('local')) {
+            return redirect('http://localhost:5173');
+        }
+        abort(404);
+    }
+
+    return response()->file($indexPath);
+})->where('any', '.*');
