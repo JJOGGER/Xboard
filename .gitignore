@@ -7,6 +7,7 @@ node_modules/
 /public/env.example.js
 /public/admin-frontend/
 /public/user-frontend/
+/public
 /.well-known/acme-challenge/
 /public/.well-known/acme-challenge/
 *.user.ini
