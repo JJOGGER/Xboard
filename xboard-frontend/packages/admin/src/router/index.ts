@@ -4,8 +4,17 @@ import { useAuthStore } from '../stores/auth'
 
 function getSecurePathFromLocationPathname(): string | undefined {
   if (typeof window === 'undefined') return undefined
-  const match = window.location.pathname.match(/^\/([\w-]+)\/mazu(?:\/|$)/)
+  // 支持两种模式：/xxx/mazu/ 和 /xxx/
+  const mazuMatch = window.location.pathname.match(/^\/([\w-]+)\/mazu(?:\/|$)/)
+  if (mazuMatch?.[1]) return mazuMatch?.[1]
+  const match = window.location.pathname.match(/^\/([\w-]+)(?:\/|$)/)
   return match?.[1]
+}
+
+function isNewAdminDomain(): boolean {
+  if (typeof window === 'undefined') return false
+  const hostname = window.location.hostname
+  return hostname.includes('aurora.') || hostname.endsWith('.aurora')
 }
 
 function normalizeSecurePath(value: string): string {
@@ -14,6 +23,18 @@ function normalizeSecurePath(value: string): string {
 
 function getAdminRouterBase(): string {
   if (import.meta.env.MODE !== 'production') return '/'
+  
+  // 检查是否是新管理端域名 (aurora.mazucloud.shop)
+  if (isNewAdminDomain()) {
+    const securePathFromPathname = getSecurePathFromLocationPathname()
+    if (typeof securePathFromPathname === 'string' && securePathFromPathname.length > 0) {
+      return `/${normalizeSecurePath(securePathFromPathname)}/`
+    }
+    // 如果没有 secure_path，返回根路径
+    return '/'
+  }
+  
+  // 兼容旧的路径模式
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin-v2/')) {
     return '/admin-v2/'
   }

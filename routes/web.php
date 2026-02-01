@@ -71,7 +71,28 @@ Route::get('/', function (Request $request) {
 });
 
 //TODO:: 兼容
-Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))), function () {
+Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))), function (Request $request) {
+    $admin2Domain = config('app.admin2_domain');
+    $admin2Host = null;
+    if ($admin2Domain) {
+        $admin2Host = parse_url($admin2Domain, PHP_URL_HOST);
+        if (!$admin2Host) {
+            $admin2Host = $admin2Domain;
+        }
+    }
+
+    if ($admin2Host && $request->getHost() === $admin2Host) {
+        $indexPath = public_path('mazu-admin/index.html');
+        if (!File::exists($indexPath)) {
+            if (app()->environment('local')) {
+                return redirect('http://localhost:5174');
+            }
+            abort(404);
+        }
+
+        return response()->file($indexPath);
+    }
+
     try {
         $version = app(UpdateService::class)->getCurrentVersion();
     } catch (\Exception $e) {
