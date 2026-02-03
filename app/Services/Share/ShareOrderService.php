@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\SharedPlan;
 use App\Models\User;
+use App\Services\CouponService;
 use App\Services\PaymentService;
 use App\Services\SubscriptionImportService;
 use App\Services\UserService;
@@ -23,7 +24,7 @@ class ShareOrderService
         $this->order = $order;
     }
 
-    public static function createFromRequest(User $user, SharedPlan $sharedPlan, string $period): Order
+    public static function createFromRequest(User $user, SharedPlan $sharedPlan, string $period, ?string $couponCode = null): Order
     {
         $hasPendingSharedOrder = Order::where('user_id', $user->id)
             ->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_PROCESSING])
@@ -52,7 +53,7 @@ class ShareOrderService
 
         $priceInCents = (int) $pricingTiers[$period]['price'];
 
-        return DB::transaction(function () use ($user, $sharedPlan, $period, $priceInCents) {
+        return DB::transaction(function () use ($user, $sharedPlan, $period, $priceInCents, $couponCode) {
             $order = new Order();
             $order->user_id = $user->id;
             $order->plan_id = 0;
@@ -63,6 +64,71 @@ class ShareOrderService
             $order->trade_no = Helper::generateOrderNo();
             $order->total_amount = $priceInCents;
             $order->status = Order::STATUS_PENDING;
+
+            // Apply coupon + vip discount for shared plan orders.
+            // NOTE: we keep the persisted period as shared tier key (monthly/quarterly/...).
+            // CouponService period limitation uses PlanService legacy/new period keys,
+            // so we temporarily map shared period -> legacy key for validation.
+            if ($couponCode) {
+                $legacyPeriodMap = [
+                    'monthly' => 'month_price',
+                    'quarterly' => 'quarter_price',
+                    'half_yearly' => 'half_year_price',
+                    'yearly' => 'year_price',
+                    'two_yearly' => 'two_year_price',
+                    'three_yearly' => 'three_year_price',
+                    'onetime' => 'onetime_price',
+                ];
+
+                $originalPeriod = $order->period;
+                $originalPlanId = $order->plan_id;
+                $order->period = $legacyPeriodMap[$period] ?? $period;
+                // CouponService checks limit_plan_ids against order.plan_id.
+                // For shared orders, persist plan_id=0, but validate coupon against shared_plan_id.
+                $order->plan_id = $sharedPlan->id;
+
+                $couponService = new CouponService($couponCode);
+                if (!$couponService->use($order)) {
+                    throw new ApiException(__('Coupon failed'));
+                }
+                $order->coupon_id = $couponService->getId();
+
+                // Restore original shared period key
+                $order->period = $originalPeriod;
+                $order->plan_id = $originalPlanId;
+            }
+
+            // VIP discount (same semantics as OrderService::setVipDiscount)
+            if ($user->discount) {
+                $order->discount_amount = ($order->discount_amount ?? 0) + ($order->total_amount * ($user->discount / 100));
+                if ($order->discount_amount > $order->total_amount) {
+                    $order->discount_amount = $order->total_amount;
+                }
+                $order->total_amount = $order->total_amount - $order->discount_amount;
+            }
+
+            // Balance deduction (align with OrderService::handleUserBalance)
+            if ($order->total_amount > 0) {
+                $lockedUser = User::lockForUpdate()->find($user->id);
+                if ($lockedUser && $lockedUser->balance) {
+                    $userService = app(UserService::class);
+                    $remainingBalance = $lockedUser->balance - $order->total_amount;
+
+                    if ($remainingBalance >= 0) {
+                        if (!$userService->addBalance($order->user_id, -$order->total_amount)) {
+                            throw new ApiException(__('Insufficient balance'));
+                        }
+                        $order->balance_amount = $order->total_amount;
+                        $order->total_amount = 0;
+                    } else {
+                        if (!$userService->addBalance($order->user_id, -$lockedUser->balance)) {
+                            throw new ApiException(__('Insufficient balance'));
+                        }
+                        $order->balance_amount = $lockedUser->balance;
+                        $order->total_amount = $order->total_amount - $lockedUser->balance;
+                    }
+                }
+            }
 
             if (!$order->save()) {
                 throw new ApiException(__('Failed to create order'));

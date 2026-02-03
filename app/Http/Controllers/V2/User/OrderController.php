@@ -40,7 +40,12 @@ class OrderController extends Controller
                 ]);
 
                 $sharedPlan = SharedPlan::findOrFail($validated['shared_plan_id']);
-                $order = ShareOrderService::createFromRequest($user, $sharedPlan, $shareValidated['period']);
+                $order = ShareOrderService::createFromRequest(
+                    $user,
+                    $sharedPlan,
+                    $shareValidated['period'],
+                    $validated['coupon_code'] ?? null
+                );
 
                 return response()->json([
                     'data' => [

@@ -8,6 +8,24 @@ import { ref, computed } from 'vue';
 import { ticketApi } from '@xboard/shared';
 import type { Ticket } from '@xboard/shared';
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Request timeout'));
+    }, ms);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 export const useTicketStore = defineStore('ticket', () => {
   // State
   const tickets = ref<Ticket[]>([]);
@@ -40,14 +58,26 @@ export const useTicketStore = defineStore('ticket', () => {
         filters.status = statusFilter.value;
       }
 
-      const response = await ticketApi.getUserTickets({
-        page: pageNum,
-        page_size: pageSize.value,
-        filters,
-      });
+      const response = await withTimeout(
+        ticketApi.getUserTickets({
+          page: pageNum,
+          page_size: pageSize.value,
+          filters,
+        }),
+        10_000
+      );
 
-      tickets.value = response.data.data;
-      total.value = response.data.total;
+      const payload: any = response.data;
+      if (Array.isArray(payload)) {
+        tickets.value = payload;
+        total.value = payload.length;
+      } else if (payload && Array.isArray(payload.data)) {
+        tickets.value = payload.data;
+        total.value = typeof payload.total === 'number' ? payload.total : payload.data.length;
+      } else {
+        tickets.value = [];
+        total.value = 0;
+      }
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch tickets';
       throw err;
@@ -60,7 +90,7 @@ export const useTicketStore = defineStore('ticket', () => {
     try {
       loading.value = true;
       error.value = null;
-      const response = await ticketApi.getUserTicketById(id);
+      const response = await withTimeout(ticketApi.getUserTicketById(id), 10_000);
       currentTicket.value = response.data;
       return response.data;
     } catch (err: any) {
@@ -75,7 +105,7 @@ export const useTicketStore = defineStore('ticket', () => {
     try {
       loading.value = true;
       error.value = null;
-      const response = await ticketApi.createUserTicket(data);
+      const response = await withTimeout(ticketApi.createUserTicket(data), 10_000);
       await fetchTickets(1);
       return response.data;
     } catch (err: any) {
@@ -90,10 +120,13 @@ export const useTicketStore = defineStore('ticket', () => {
     try {
       loading.value = true;
       error.value = null;
-      const response = await ticketApi.replyUserTicket({
-        id: ticketId,
-        message,
-      });
+      const response = await withTimeout(
+        ticketApi.replyUserTicket({
+          id: ticketId,
+          message,
+        }),
+        10_000
+      );
 
       // User reply endpoint returns boolean; refresh ticket details to get latest messages
       await fetchTicketById(ticketId);
@@ -110,7 +143,7 @@ export const useTicketStore = defineStore('ticket', () => {
     try {
       loading.value = true;
       error.value = null;
-      await ticketApi.closeUserTicket(id);
+      await withTimeout(ticketApi.closeUserTicket(id), 10_000);
 
       // Update ticket status in list
       const ticket = tickets.value.find((t) => t.id === id);

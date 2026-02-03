@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Log;
  */
 class ShareOrderController extends Controller
 {
+    private const MOBILE_UNLIMITED_TRANSFER_GB = 2147483647;
+
     /**
      * 创建共享套餐订单
      * POST /api/v1/user/share-order/save
@@ -28,6 +30,7 @@ class ShareOrderController extends Controller
         $request->validate([
             'shared_plan_id' => 'required|integer|exists:v2_shared_plans,id',
             'period' => 'required|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly,onetime',
+            'coupon_code' => 'nullable|string',
         ]);
 
         $user = User::findOrFail($request->user()->id);
@@ -74,7 +77,12 @@ class ShareOrderController extends Controller
 
         $period = $request->input('period');
 
-        $order = ShareOrderService::createFromRequest($user, $sharedPlan, $period);
+        $order = ShareOrderService::createFromRequest(
+            $user,
+            $sharedPlan,
+            $period,
+            $request->input('coupon_code')
+        );
         return $this->success($order->trade_no);
     }
 
@@ -180,14 +188,45 @@ class ShareOrderController extends Controller
             $transferEnableGb = (int) floor(((int) $sharedPlan->total_traffic) / 1024 / 1024 / 1024);
         }
 
+        $legacyPeriodMap = [
+            'monthly' => 'month_price',
+            'quarterly' => 'quarter_price',
+            'half_yearly' => 'half_year_price',
+            'yearly' => 'year_price',
+            'two_yearly' => 'two_year_price',
+            'three_yearly' => 'three_year_price',
+            'onetime' => 'onetime_price',
+        ];
+
+        $legacyPeriod = $legacyPeriodMap[$order->period] ?? $order->period;
+
+        $pricingTiers = null;
+        if ($sharedPlan) {
+            $tiers = $sharedPlan->getActivePricingTiers();
+            $pricingTiers = [];
+            foreach ($tiers as $periodKey => $tier) {
+                $pricingTiers[$periodKey] = [
+                    'price' => (double) ($tier['price'] ?? 0),
+                    'enabled' => true,
+                ];
+            }
+        }
+
         return $this->success([
             // Fields required by MaClash OrderDetailResponse
             'trade_no' => $order->trade_no,
             'status' => $order->status,
             'total_amount' => $order->total_amount,
-            'period' => $order->period,
-            'created_at' => $order->created_at ? $order->created_at->timestamp : null,
-            'updated_at' => $order->updated_at ? $order->updated_at->timestamp : null,
+            'handling_amount' => $order->handling_amount ?? 0,
+            'payment_id' => $order->payment_id,
+            'coupon_id' => $order->coupon_id,
+            'period' => $legacyPeriod,
+            'created_at' => $order->created_at ? (is_numeric($order->created_at) ? (int) $order->created_at : $order->created_at->timestamp) : null,
+            'updated_at' => $order->updated_at ? (is_numeric($order->updated_at) ? (int) $order->updated_at : $order->updated_at->timestamp) : null,
+
+            // Allow clients to distinguish shared vs traditional orders
+            'plan_type' => 'shared',
+            'shared_plan_id' => $sharedPlan ? $sharedPlan->id : ($order->shared_plan_id ?? null),
 
             // Keep legacy plan_id + plan object shape so existing UI can reuse PlanInfoCard / PriceDetailCard.
             'plan_id' => $sharedPlan ? $sharedPlan->id : ($order->shared_plan_id ?? 0),
@@ -195,7 +234,9 @@ class ShareOrderController extends Controller
                 'id' => $sharedPlan->id,
                 'name' => $sharedPlan->name,
                 // Legacy UI treats this as GB. If shared plan has total_traffic, convert bytes->GB; otherwise mark as "unlimited".
-                'transfer_enable' => $transferEnableGb === null ? PHP_INT_MAX : $transferEnableGb,
+                'transfer_enable' => $transferEnableGb === null ? self::MOBILE_UNLIMITED_TRANSFER_GB : $transferEnableGb,
+                // Shared pricing tiers used by newer MaClash UI to compute price consistently.
+                'pricing_tiers' => $pricingTiers,
             ] : null,
 
             // Optional amounts used by legacy UI for price breakdown

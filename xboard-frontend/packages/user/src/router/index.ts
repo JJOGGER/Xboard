@@ -73,6 +73,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../pages/Orders.vue')
       },
       {
+        path: '/orders/:trade_no',
+        name: 'OrderDetail',
+        component: () => import('../pages/OrderDetail.vue')
+      },
+      {
         path: '/referral',
         name: 'Referral',
         component: () => import('../pages/Referral.vue')
@@ -81,6 +86,16 @@ const routes: RouteRecordRaw[] = [
         path: '/tickets',
         name: 'Tickets',
         component: () => import('../pages/Tickets.vue')
+      },
+      {
+        path: '/tickets/new',
+        name: 'TicketCreate',
+        component: () => import('../pages/TicketCreate.vue')
+      },
+      {
+        path: '/tickets/:id',
+        name: 'TicketDetail',
+        component: () => import('../pages/TicketDetail.vue')
       },
       {
         path: '/knowledge',

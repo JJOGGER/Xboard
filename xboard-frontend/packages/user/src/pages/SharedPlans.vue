@@ -143,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue';
+import { ref, computed, onMounted, reactive, h } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { NButton, NSpin, useMessage, useDialog } from 'naive-ui';
@@ -160,6 +160,7 @@ const orderStore = useOrderStore();
 
 const purchasing = ref(false);
 const selectedPeriods = reactive<Record<number, string>>({});
+const couponCodes = reactive<Record<number, string>>({});
 
 const loading = computed(() => sharedPlanStore.loading);
 const error = computed(() => sharedPlanStore.error);
@@ -304,67 +305,31 @@ const handlePurchase = async (plan: SharedPlan) => {
     return;
   }
 
-  purchasing.value = true;
-  try {
-    // 使用 orderStore 创建订单（会自动处理认证）
-    const result = await orderStore.createOrder({
-      shared_plan_id: plan.id,
-      period: selectedPeriod,
-    });
-    
-    console.log('[SharedPlans] Order created, trade_no:', result.trade_no);
-    
-    // 跳转到支付页面
-    router.push({
-      name: 'Checkout',
-      query: {
-        trade_no: result.trade_no,
-      },
-    });
-  } catch (err: any) {
-    console.error('Purchase failed:', err);
-    
-    // 检查是否有未完成的订单
-    // apiClient 会将错误转换为 ApiError，原始响应数据在 err.response 中
-    const errorData = err.response;
-    
-    if (errorData?.data?.has_pending_order) {
-      const pendingOrder = errorData.data.pending_order;
-      
-      dialog.warning({
-        title: '有未完成的订单',
-        content: `您有一个未支付的订单 ${pendingOrder.trade_no}，金额 ¥${pendingOrder.total_amount.toFixed(2)}。请选择继续支付或取消订单。`,
-        positiveText: '去支付',
-        negativeText: '取消订单',
-        onPositiveClick: () => {
-          // 跳转到支付页面
-          router.push({
-            name: 'Checkout',
-            query: {
-              trade_no: pendingOrder.trade_no,
-            },
-          });
-        },
-        onNegativeClick: async () => {
-          try {
-            // 调用取消订单API（使用 apiClient 自动处理认证）
-            await orderStore.cancelShareOrder(pendingOrder.trade_no);
-            message.success('订单已取消，请重新选择套餐购买');
-            
-            // 不自动重新购买，让用户手动选择
-            // 因为取消订单后，用户可能想选择不同的周期
-          } catch (cancelErr: any) {
-            console.error('Cancel order failed:', cancelErr);
-            message.error(cancelErr.message || '取消订单失败');
-          }
-        },
-      });
-    } else {
-      message.error(errorData?.message || err.message || t('sharedPlans.purchaseFailed'));
-    }
-  } finally {
-    purchasing.value = false;
-  }
+  dialog.create({
+    title: '确认购买',
+    content: () => {
+      return h('div', { class: 'space-y-2' }, [
+        h('div', null, `周期：${selectedTier.name}，价格：¥${selectedTier.price.toFixed(2)}`),
+      ]);
+    },
+    positiveText: '去结算',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        router.push({
+          name: 'Checkout',
+          query: {
+            shared_plan_id: plan.id,
+            period: selectedPeriod,
+          },
+        });
+      } catch (err: any) {
+        console.error('Purchase failed:', err);
+        message.error(err?.response?.data?.message || err.message || t('sharedPlans.purchaseFailed'));
+      } finally {
+      }
+    },
+  });
 };
 
 onMounted(() => {

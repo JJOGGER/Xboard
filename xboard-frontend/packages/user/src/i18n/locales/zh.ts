@@ -2,6 +2,7 @@ export default {
   common: {
     retry: '重试',
     close: '关闭',
+    back: '返回',
     confirm: '确认',
     cancel: '取消',
     save: '保存',
@@ -640,6 +641,81 @@ export default {
       revokeAllSuccess: '所有其他会话已撤销',
       revokeAllError: '撤销会话失败',
       fetchError: '加载会话失败'
+    }
+  },
+  tickets: {
+    title: '工单',
+    subtitle: '联系支持并查看会话记录',
+    loading: '工单加载中...',
+    error: '加载工单失败',
+    noTickets: '暂无工单',
+    unread: '未读',
+    actions: {
+      new: '新建工单',
+      reply: '回复',
+      close: '关闭',
+      withdraw: '撤回'
+    },
+    filters: {
+      all: '全部',
+      open: '进行中',
+      closed: '已关闭'
+    },
+    status: {
+      open: '进行中',
+      closed: '已关闭'
+    },
+    replyStatus: {
+      replied: '已回复',
+      pending: '待回复'
+    },
+    fields: {
+      subject: '标题',
+      level: '优先级',
+      message: '内容',
+      createdAt: '创建时间',
+      updatedAt: '更新时间'
+    },
+    level: {
+      low: '低',
+      normal: '中',
+      high: '高'
+    },
+    validation: {
+      subjectRequired: '请输入标题',
+      levelRequired: '请选择优先级',
+      messageRequired: '请输入内容',
+      replyRequired: '请输入回复内容'
+    },
+    create: {
+      title: '新建工单',
+      subtitle: '请描述您的问题，我们会尽快处理',
+      subjectPlaceholder: '请简要描述问题',
+      messagePlaceholder: '请详细描述您的问题',
+      submit: '提交',
+      success: '工单创建成功'
+    },
+    detail: {
+      title: '工单详情',
+      me: '我',
+      support: '客服',
+      replyTitle: '回复',
+      replyPlaceholder: '请输入回复内容...',
+      waitSupportReply: '请等待技术支持回复后再继续发送',
+      closedNotice: '该工单已关闭',
+      loadError: '加载工单失败'
+    },
+    reply: {
+      success: '回复已发送',
+      error: '发送回复失败'
+    },
+    close: {
+      success: '工单已关闭',
+      error: '关闭工单失败'
+    },
+    withdraw: {
+      success: '工单已撤回',
+      error: '撤回工单失败'
     }
   },
   sharedPlans: {

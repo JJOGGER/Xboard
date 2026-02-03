@@ -2,6 +2,7 @@ export default {
   common: {
     retry: 'Retry',
     close: 'Close',
+    back: 'Back',
     confirm: 'Confirm',
     cancel: 'Cancel',
     save: 'Save',
@@ -640,6 +641,81 @@ export default {
       revokeAllSuccess: 'All other sessions revoked',
       revokeAllError: 'Failed to revoke sessions',
       fetchError: 'Failed to load sessions'
+    }
+  },
+  tickets: {
+    title: 'Tickets',
+    subtitle: 'Contact support and view your conversations',
+    loading: 'Loading tickets...',
+    error: 'Failed to load tickets',
+    noTickets: 'No tickets yet',
+    unread: 'Unread',
+    actions: {
+      new: 'New Ticket',
+      reply: 'Reply',
+      close: 'Close',
+      withdraw: 'Withdraw'
+    },
+    filters: {
+      all: 'All',
+      open: 'Open',
+      closed: 'Closed'
+    },
+    status: {
+      open: 'Open',
+      closed: 'Closed'
+    },
+    replyStatus: {
+      replied: 'Replied',
+      pending: 'Pending'
+    },
+    fields: {
+      subject: 'Subject',
+      level: 'Priority',
+      message: 'Message',
+      createdAt: 'Created',
+      updatedAt: 'Updated'
+    },
+    level: {
+      low: 'Low',
+      normal: 'Normal',
+      high: 'High'
+    },
+    validation: {
+      subjectRequired: 'Please enter a subject',
+      levelRequired: 'Please select a priority',
+      messageRequired: 'Please enter a message',
+      replyRequired: 'Please enter a reply'
+    },
+    create: {
+      title: 'Create Ticket',
+      subtitle: 'Describe your issue and we will get back to you as soon as possible',
+      subjectPlaceholder: 'Briefly describe your issue',
+      messagePlaceholder: 'Describe your issue in detail',
+      submit: 'Submit',
+      success: 'Ticket created'
+    },
+    detail: {
+      title: 'Ticket Detail',
+      me: 'Me',
+      support: 'Support',
+      replyTitle: 'Reply',
+      replyPlaceholder: 'Type your reply...',
+      waitSupportReply: 'Please wait for support to reply before sending another message',
+      closedNotice: 'This ticket is closed',
+      loadError: 'Failed to load ticket'
+    },
+    reply: {
+      success: 'Reply sent',
+      error: 'Failed to send reply'
+    },
+    close: {
+      success: 'Ticket closed',
+      error: 'Failed to close ticket'
+    },
+    withdraw: {
+      success: 'Ticket withdrawn',
+      error: 'Failed to withdraw ticket'
     }
   },
   sharedPlans: {

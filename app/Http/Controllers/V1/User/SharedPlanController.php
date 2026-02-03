@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Log;
  */
 class SharedPlanController extends Controller
 {
+    private const MOBILE_UNLIMITED_TRANSFER_GB = 2147483647;
+
     /**
      * 获取可用的共享套餐列表
      * GET /api/v1/user/shared-plans
@@ -25,6 +27,7 @@ class SharedPlanController extends Controller
             // 只返回可见的套餐
             $query = SharedPlan::where('is_visible', true)
                 ->where('sync_status', SharedPlan::SYNC_STATUS_ACTIVE)
+                ->with('group')
                 ->orderBy('created_at', 'desc');
 
             // 搜索：按名称
@@ -49,18 +52,39 @@ class SharedPlanController extends Controller
 
             // 格式化返回数据
             $data = $plans->map(function ($plan) {
+                $transferEnableGb = null;
+                if ($plan->total_traffic !== null) {
+                    $transferEnableGb = (int) floor(((int) $plan->total_traffic) / 1024 / 1024 / 1024);
+                }
+
                 return [
                     'id' => $plan->id,
                     'name' => $plan->name,
                     'description' => $plan->description,
+                    'group_id' => $plan->group_id,
+                    'tags' => $plan->tags,
+                    'prices' => $plan->prices,
                     'subscription_format' => $plan->subscription_format,
                     'nodes_count' => $plan->nodes_count,
+                    'nodes_config' => $plan->nodes_config,
                     'pricing_tiers' => $plan->getActivePricingTiers(),
+                    // For MaClash UI compatibility: show GB, and use Integer.MAX_VALUE as "unlimited" sentinel.
+                    'transfer_enable' => $transferEnableGb === null ? self::MOBILE_UNLIMITED_TRANSFER_GB : $transferEnableGb,
                     'max_slots' => $plan->max_slots,
                     'used_slots' => $plan->used_slots,
                     'available_slots' => $plan->getAvailableSlotsCount(),
+                    // Optional traffic fields for Mine page consistency
+                    'total_traffic' => $plan->total_traffic,
+                    'used_traffic' => $plan->used_traffic,
+                    'remaining_traffic' => $plan->getRemainingTraffic(),
                     'expire_at' => $plan->expire_at?->toIso8601String(),
+                    'last_sync_at' => $plan->last_sync_at?->toIso8601String(),
+                    'sync_status' => $plan->sync_status,
                     'created_at' => $plan->created_at->toIso8601String(),
+                    'group' => $plan->group ? [
+                        'id' => $plan->group->id,
+                        'name' => $plan->group->name,
+                    ] : null,
                 ];
             });
 
@@ -90,12 +114,16 @@ class SharedPlanController extends Controller
 
             // 获取用户的所有slot
             $slots = PlanSlot::where('user_id', $user->id)
-                ->with('sharedPlan')
+                ->with(['sharedPlan.group'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             $data = $slots->map(function ($slot) {
                 $plan = $slot->sharedPlan;
+                $transferEnableGb = null;
+                if ($plan && $plan->total_traffic !== null) {
+                    $transferEnableGb = (int) floor(((int) $plan->total_traffic) / 1024 / 1024 / 1024);
+                }
                 
                 return [
                     'slot' => [
@@ -107,10 +135,22 @@ class SharedPlanController extends Controller
                     'plan' => [
                         'id' => $plan->id,
                         'name' => $plan->name,
+                        'group_id' => $plan->group_id,
+                        'tags' => $plan->tags,
+                        'prices' => $plan->prices,
                         'subscription_format' => $plan->subscription_format,
                         'nodes_count' => $plan->nodes_count,
                         'nodes_config' => $plan->nodes_config, // Add parsed nodes list
-                        // 不显示流量信息，因为是共享的
+                        'pricing_tiers' => $plan->getActivePricingTiers(),
+                        // For MaClash UI compatibility
+                        'transfer_enable' => $transferEnableGb === null ? self::MOBILE_UNLIMITED_TRANSFER_GB : $transferEnableGb,
+                        'total_traffic' => $plan->total_traffic,
+                        'used_traffic' => $plan->used_traffic,
+                        'remaining_traffic' => $plan->getRemainingTraffic(),
+                        'group' => $plan->group ? [
+                            'id' => $plan->group->id,
+                            'name' => $plan->group->name,
+                        ] : null,
                     ],
                     'subscription_url' => $slot->getSubscriptionUrl(),
                 ];

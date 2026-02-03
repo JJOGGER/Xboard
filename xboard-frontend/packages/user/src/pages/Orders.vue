@@ -27,103 +27,45 @@
         <p class="text-slate-600 dark:text-slate-400">{{ t('orders.error') }}</p>
       </div>
 
-      <!-- Orders Table -->
-      <div v-else-if="orders.length > 0" class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-              <tr>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {{ t('orders.table.orderNo') }}
-                </th>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {{ t('orders.table.plan') }}
-                </th>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {{ t('orders.table.period') }}
-                </th>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {{ t('orders.table.amount') }}
-                </th>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {{ t('orders.table.status') }}
-                </th>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {{ t('orders.table.date') }}
-                </th>
-                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {{ t('orders.table.actions') }}
-                </th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-              <tr
-                v-for="order in orders"
-                :key="order.id"
-                class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-              >
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-medium text-slate-900 dark:text-white">
-                    #{{ order.trade_no }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-slate-900 dark:text-white">
-                    {{ getOrderPlanName(order) }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-slate-600 dark:text-slate-400">
-                    {{ t(`plans.periods.${getPeriodKey(order.period)}`) }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-semibold text-slate-900 dark:text-white">
-                    ${{ (getOrderPaidAmount(order) / 100).toFixed(2) }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span
-                    :class="[
-                      'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold',
-                      getStatusClass(order.status)
-                    ]"
-                  >
-                    {{ t(`orders.status.${getStatusKey(order.status)}`) }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-slate-600 dark:text-slate-400">
-                    {{ formatDate(order.created_at) }}
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right">
-                  <div class="flex items-center justify-end gap-2">
-                    <button
-                      @click="viewOrderDetail(order)"
-                      class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-sm font-medium transition-colors"
-                    >
-                      {{ t('orders.actions.view') }}
-                    </button>
-                    <button
-                      v-if="order.status === 0"
-                      @click="handlePayment(order)"
-                      class="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 text-sm font-medium transition-colors"
-                    >
-                      {{ t('orders.actions.pay') }}
-                    </button>
-                    <button
-                      v-if="order.status === 0"
-                      @click="handleCancelOrder(order)"
-                      class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium transition-colors"
-                    >
-                      {{ t('orders.actions.cancel') }}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Orders List (MaClash-aligned cards) -->
+      <div v-else-if="orders.length > 0" class="space-y-4">
+        <div
+          v-for="order in orders"
+          :key="order.id"
+          class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 cursor-pointer transition-transform hover:scale-[1.01]"
+          @click="goToOrderDetail(order)"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <div class="text-lg font-semibold text-slate-900 dark:text-white truncate">
+                {{ getOrderPlanName(order) }}
+              </div>
+              <div class="text-3xl font-bold text-primary-600 mt-2">
+                ¥{{ (getOrderOriginalPrice(order) / 100).toFixed(2) }}
+              </div>
+            </div>
+
+            <span
+              :class="[
+                'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0',
+                getStatusClass(order.status)
+              ]"
+            >
+              {{ getStatusText(order.status) }}
+            </span>
+          </div>
+
+          <div class="mt-4 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+            <div>
+              {{ t('orders.detail.tradeNo') }}：{{ (order as any).trade_no }}
+            </div>
+            <div>
+              {{ t('orders.detail.period') }}：{{ t(`plans.periods.${getPeriodKey((order as any).period)}`) }}
+            </div>
+            <div>
+              {{ t('orders.detail.createdAt') }}：{{ formatDate((order as any).created_at) }}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -149,22 +91,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useOrderStore } from '../stores/order';
 import type { Order } from '@xboard/shared/types';
-import { useDialog, useMessage } from 'naive-ui';
 import dayjs from 'dayjs';
 
 const { t } = useI18n();
 const router = useRouter();
 const orderStore = useOrderStore();
-const dialog = useDialog();
-const message = useMessage();
-
-// State
-const selectedOrder = ref<Order | null>(null);
 
 // Computed
 const loading = computed(() => orderStore.loading);
@@ -172,15 +108,21 @@ const error = computed(() => orderStore.error);
 const orders = computed(() => orderStore.orders);
 
 // Methods
-function getStatusKey(status: number): string {
-  const statusMap: Record<number, string> = {
-    0: 'pending',
-    1: 'processing',
-    2: 'cancelled',
-    3: 'completed',
-    4: 'discounted',
-  };
-  return statusMap[status] || 'pending';
+function getStatusText(status: number): string {
+  switch (status) {
+    case 0:
+      return '待支付';
+    case 1:
+      return '开通中';
+    case 2:
+      return '已取消';
+    case 3:
+      return '已完成';
+    case 4:
+      return '已折抵';
+    default:
+      return '未知';
+  }
 }
 
 function getStatusClass(status: number): string {
@@ -189,7 +131,7 @@ function getStatusClass(status: number): string {
     1: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
     2: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
     3: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-    4: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400',
+    4: 'bg-slate-200 text-slate-700 dark:bg-slate-700/40 dark:text-slate-200',
   };
   return classMap[status] || classMap[0];
 }
@@ -216,12 +158,38 @@ function getOrderPlanName(order: any): string {
   return order?.shared_plan?.name || order?.plan?.name || 'N/A';
 }
 
-function getOrderPaidAmount(order: any): number {
-  const total = typeof order?.total_amount === 'number' ? order.total_amount : Number(order?.total_amount || 0);
-  const balance = typeof order?.balance_amount === 'number' ? order.balance_amount : Number(order?.balance_amount || 0);
-  const safeTotal = Number.isFinite(total) ? total : 0;
-  const safeBalance = Number.isFinite(balance) ? balance : 0;
-  return safeTotal + safeBalance;
+function getOrderOriginalPrice(order: any): number {
+  // MaClash: list displays plan original price for period, not payable.
+  const period: string = String(order?.period || '');
+
+  // shared: use pricing_tiers with legacy->shared mapping
+  const sharedPlan: any = order?.plan;
+  if (sharedPlan?.pricing_tiers) {
+    const legacyToShared: Record<string, string> = {
+      month_price: 'monthly',
+      quarter_price: 'quarterly',
+      half_year_price: 'half_yearly',
+      year_price: 'yearly',
+      two_year_price: 'two_yearly',
+      three_year_price: 'three_yearly',
+      onetime_price: 'onetime',
+    };
+    const sharedPeriod = legacyToShared[period] || period;
+    const price = sharedPlan.pricing_tiers?.[sharedPeriod]?.price;
+    if (typeof price === 'number') return price;
+  }
+
+  // traditional: plan has legacy price keys like month_price etc
+  const plan: any = order?.plan;
+  const p = plan?.[period];
+  if (typeof p === 'number') return p;
+
+  // fallback to payable + deductions if no pricing is available
+  const total = Number(order?.total_amount || 0);
+  const discount = Number(order?.discount_amount || 0);
+  const balance = Number(order?.balance_amount || 0);
+  const surplus = Number(order?.surplus_amount || 0);
+  return total + discount + balance + surplus;
 }
 
 function getPeriodKey(period: string): string {
@@ -247,70 +215,12 @@ function getPeriodKey(period: string): string {
   return mapping[period] || period;
 }
 
-function viewOrderDetail(order: Order): void {
-  selectedOrder.value = order;
-
-  // Only pending orders should enter Checkout.
-  // Cancelled/completed orders should show details instead of triggering payment flow.
-  if (order.status === 0) {
-    router.push({
-      name: 'Checkout',
-      query: {
-        trade_no: (order as any).trade_no,
-      },
-    });
-    return;
-  }
-
-  dialog.info({
-    title: t('orders.detail.title'),
-    content: () =>
-      h('div', { class: 'space-y-2' }, [
-        h('div', [h('span', { class: 'text-slate-500 mr-2' }, t('orders.detail.tradeNo')), h('span', String((order as any).trade_no ?? ''))]),
-        h('div', [h('span', { class: 'text-slate-500 mr-2' }, t('orders.detail.plan')), h('span', getOrderPlanName(order))]),
-        h('div', [h('span', { class: 'text-slate-500 mr-2' }, t('orders.detail.period')), h('span', t(`plans.periods.${getPeriodKey((order as any).period)}`))]),
-        h('div', [h('span', { class: 'text-slate-500 mr-2' }, t('orders.detail.totalAmount')), h('span', `$${(getOrderPaidAmount(order) / 100).toFixed(2)}`)]),
-        h('div', [h('span', { class: 'text-slate-500 mr-2' }, t('orders.detail.status')), h('span', t(`orders.status.${getStatusKey(order.status)}`))]),
-        h('div', [h('span', { class: 'text-slate-500 mr-2' }, t('orders.detail.createdAt')), h('span', formatDate((order as any).created_at))]),
-      ]),
-    positiveText: t('orders.detail.close'),
-  });
-}
-
-async function handlePayment(order: Order): Promise<void> {
-  if (order.status !== 0) {
-    message.warning(t('orders.payment.notPending'));
-    return;
-  }
-
+function goToOrderDetail(order: Order): void {
   router.push({
-    name: 'Checkout',
-    query: {
-      trade_no: (order as any).trade_no,
+    name: 'OrderDetail',
+    params: {
+      trade_no: String((order as any).trade_no),
     },
-  });
-}
-
-async function handleCancelOrder(order: Order): Promise<void> {
-  dialog.warning({
-    title: 'Warning',
-    content: t('orders.cancel.confirm'),
-    positiveText: 'OK',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        const planType = (order as any).plan_type;
-        if (planType === 'shared' || (order as any).shared_plan_id || (order as any).shared_plan) {
-          await orderStore.cancelShareOrder((order as any).trade_no);
-        } else {
-          await orderStore.cancelOrder((order as any).trade_no, order.id);
-        }
-        message.success(t('orders.cancel.success'));
-      } catch (err: any) {
-        console.error('Failed to cancel order:', err);
-        message.error(err.message || t('orders.cancel.error'));
-      }
-    }
   });
 }
 

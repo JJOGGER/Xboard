@@ -69,7 +69,7 @@
             <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span>{{ formatBytes(plan.transfer_enable) }} {{ t('plans.traffic') }}</span>
+            <span>{{ getPlanTrafficText(plan) }} {{ t('plans.traffic') }}</span>
           </div>
 
           <div v-if="plan.speed_limit" class="feature-item">
@@ -192,12 +192,34 @@ const isCurrentPlan = (planId: number) => {
   return authStore.user?.plan_id === planId
 }
 
+const UNLIMITED_GB_SENTINEL = 2147483647
+const GB_BYTES = 1024 * 1024 * 1024
+
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return '0 B'
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+const getPlanTrafficText = (plan: any) => {
+  if (!plan) return '-'
+  if (plan.is_shared_plan) {
+    const totalTraffic = plan.total_traffic ?? plan.totalTraffic ?? null
+    if (typeof totalTraffic === 'number' && totalTraffic > 0) {
+      return formatBytes(totalTraffic)
+    }
+    const te = plan.transfer_enable ?? null
+    if (typeof te === 'number' && te >= UNLIMITED_GB_SENTINEL) {
+      return t('plans.unlimited')
+    }
+    return '-'
+  }
+
+  const te = plan.transfer_enable ?? 0
+  const bytes = te > 0 && te < UNLIMITED_GB_SENTINEL ? (te < 10_000_000 ? te * GB_BYTES : te) : 0
+  return bytes > 0 ? formatBytes(bytes) : '-'
 }
 
 const fetchPlans = async () => {
@@ -273,22 +295,14 @@ const handleSubscribe = async (plan: Plan) => {
       message.error(t('plans.noPriceAvailable') || 'No pricing available for this plan')
       return
     }
-    
-    // Create order first
-    const orderData = {
-      plan_id: plan.id,
-      plan_type: 'traditional' as const,
-      period: period
-    }
-    
-    const orderResponse = await orderStore.createOrder(orderData)
-    
-    // Navigate to checkout with the order
+
+    // Navigate to checkout and create order there (coupon input/verification happens at Checkout).
     router.push({
       name: 'Checkout',
-      query: { 
-        trade_no: orderResponse.trade_no
-      }
+      query: {
+        plan_id: plan.id,
+        period: period,
+      },
     })
   } catch (err: any) {
     console.error('Failed to create order:', err)
