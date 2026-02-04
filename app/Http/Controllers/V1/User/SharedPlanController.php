@@ -152,7 +152,7 @@ class SharedPlanController extends Controller
                             'name' => $plan->group->name,
                         ] : null,
                     ],
-                    'subscription_url' => $slot->getSubscriptionUrl(),
+                    'subscription_url' => $plan->subscription_url, // 返回原始第三方订阅地址
                 ];
             });
 

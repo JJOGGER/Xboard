@@ -290,6 +290,7 @@ class SharedPlanController extends Controller
                     'id' => $plan->id,
                     'name' => $plan->name,
                     'description' => $plan->description,
+                    'subscription_url' => $plan->subscription_url, // 原始地址（管理端直接返回）
                     'subscription_format' => $plan->subscription_format,
                     'nodes_count' => $plan->nodes_count,
                     'max_slots' => $plan->max_slots,
@@ -374,14 +375,14 @@ class SharedPlanController extends Controller
                 ];
             });
 
-            // 脱敏订阅URL
-            $maskedUrl = $plan->getMaskedSubscriptionUrl();
+            // 管理端直接返回原始订阅地址（与传统订阅对齐）
+            $originalUrl = $plan->subscription_url;
 
             $result = [
                 'id' => $plan->id,
                 'name' => $plan->name,
                 'description' => $plan->description,
-                'subscription_url' => $maskedUrl, // 脱敏后的URL
+                'subscription_url' => $originalUrl, // 原始地址（与传统订阅对齐）
                 'subscription_format' => $plan->subscription_format,
                 'nodes_count' => $plan->nodes_count,
                 'nodes_config' => $plan->nodes_config, // Include parsed nodes for admin view

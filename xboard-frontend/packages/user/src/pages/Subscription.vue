@@ -82,8 +82,8 @@
           </div>
         </n-collapse-transition>
 
-        <!-- Reset Secret Button -->
-        <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <!-- Reset Secret Button (only for traditional subscription) -->
+        <div v-if="!hasSharedSubscription" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           <n-alert type="warning" :title="t('subscription.resetSecret.warning')" class="mb-4">
             {{ t('subscription.resetSecret.confirm') }}
           </n-alert>

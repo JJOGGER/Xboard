@@ -133,7 +133,11 @@ class ApiClient {
         // V2 admin routes require secure_path: /api/v2/{secure_path}/*
         // IMPORTANT: only enable this behavior when VITE_SECURE_PATH is explicitly provided.
         // User app does not set VITE_SECURE_PATH and must NOT have secure_path injected.
-        if (config.url && config.url.startsWith('/v2/') && isAdminContextPathname()) {
+        const hasExplicitSecurePathEnv =
+          typeof import.meta.env.VITE_SECURE_PATH === 'string' &&
+          import.meta.env.VITE_SECURE_PATH.length > 0;
+
+        if (config.url && config.url.startsWith('/v2/') && (isAdminContextPathname() || hasExplicitSecurePathEnv)) {
           // Public routes that don't need secure_path
           const publicRoutes = [
             '/v2/passport/',           // Authentication routes

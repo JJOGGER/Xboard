@@ -9,6 +9,10 @@
         </el-button>
       </div>
       <div class="header-actions">
+        <el-button type="info" @click="handleCopyOriginalUrl">
+          <el-icon><Link /></el-icon>
+          {{ t('sharedPlans.copyOriginalUrl') }}
+        </el-button>
         <el-button type="success" @click="handleSync">
           <el-icon><Refresh /></el-icon>
           {{ t('sharedPlans.sync') }}
@@ -336,7 +340,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Refresh } from '@element-plus/icons-vue';
+import { ArrowLeft, Refresh, Link } from '@element-plus/icons-vue';
 import { useSharedPlanStore } from '../../stores/sharedPlan';
 
 const { t } = useI18n();
@@ -418,6 +422,21 @@ const getPeriodLabel = (period: string): string => {
 
 const handleBack = () => {
   router.back();
+};
+
+const handleCopyOriginalUrl = async () => {
+  if (!currentPlan.value) return;
+  try {
+    const originalUrl = currentPlan.value.subscription_url;
+    if (!originalUrl) {
+      ElMessage.error(t('sharedPlans.originalUrlNotFound'));
+      return;
+    }
+    await navigator.clipboard.writeText(originalUrl);
+    ElMessage.success(t('sharedPlans.originalUrlCopied'));
+  } catch (error) {
+    ElMessage.error(t('sharedPlans.copyFailed'));
+  }
 };
 
 const handleSync = async () => {

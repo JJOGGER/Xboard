@@ -135,6 +135,17 @@
                 <el-icon><Delete /></el-icon>
               </el-button>
             </el-tooltip>
+
+            <el-tooltip :content="t('sharedPlans.copyOriginalUrl')">
+              <el-button
+                type="info"
+                size="small"
+                circle
+                @click="handleCopyOriginalUrl(plan)"
+              >
+                <el-icon><Link /></el-icon>
+              </el-button>
+            </el-tooltip>
           </div>
         </div>
 
@@ -440,6 +451,7 @@ import {
   View,
   Edit,
   Delete,
+  Link,
   Refresh,
   Clock,
   Grid,
@@ -826,6 +838,21 @@ const handleDelete = async (plan: SharedPlan) => {
     if (error !== 'cancel') {
       ElMessage.error(t('sharedPlans.deleteFailed'));
     }
+  }
+};
+
+const handleCopyOriginalUrl = async (plan: SharedPlan) => {
+  try {
+    // 直接使用列表中的 subscription_url（列表接口已返回原始地址）
+    const originalUrl = plan.subscription_url;
+    if (!originalUrl) {
+      ElMessage.error(t('sharedPlans.originalUrlNotFound'));
+      return;
+    }
+    await navigator.clipboard.writeText(originalUrl);
+    ElMessage.success(t('sharedPlans.originalUrlCopied'));
+  } catch (error) {
+    ElMessage.error(t('sharedPlans.copyFailed'));
   }
 };
 
