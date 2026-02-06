@@ -757,7 +757,8 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "saving": "保存中...",
       "save_success": "已自动保存",
       "placeholder": "请输入",
-      "autoSaved": "已自动保存"
+      "autoSaved": "已自动保存",
+      "select": "选择"
     },
     "invite": {
       "title": "邀请&佣金设置",

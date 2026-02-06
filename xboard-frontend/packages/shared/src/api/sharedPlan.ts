@@ -22,6 +22,7 @@ export interface SharedPlan {
   
   // NEW FIELDS
   group_id: number | null;
+  group_ids?: number[];
   tags: string[] | null;
   prices: {
     monthly?: number;
@@ -30,8 +31,8 @@ export interface SharedPlan {
     yearly?: number;
     two_yearly?: number;
     three_yearly?: number;
-    onetime?: number;
   } | null;
+  device_limit?: number | null;
   
   // 后端返回的定价层级数据
   pricing_tiers?: {
@@ -68,6 +69,7 @@ export interface SharedPlan {
   
   // RELATIONSHIPS
   group?: ServerGroup;
+  groups?: Array<{ id: number; name: string }>;
 }
 
 export interface PlanSlot {
@@ -103,15 +105,35 @@ export interface ImportSubscriptionRequest {
   subscription_url: string;
   name: string;
   description?: string;
-  price: number;
-  duration_days: number;
+  group_ids?: number[];
+  device_limit?: number | null;
   max_slots: number;
+  prices: {
+    monthly?: number;
+    quarterly?: number;
+    half_yearly?: number;
+    yearly?: number;
+    two_yearly?: number;
+    three_yearly?: number;
+  };
 }
 
 export interface UpdateSharedPlanRequest {
+  subscription_url?: string;
   name?: string;
   description?: string;
-  price?: number;
+  group_id?: number | null;
+  group_ids?: number[] | null;
+  device_limit?: number | null;
+  tags?: string[] | null;
+  prices?: {
+    monthly?: number;
+    quarterly?: number;
+    half_yearly?: number;
+    yearly?: number;
+    two_yearly?: number;
+    three_yearly?: number;
+  } | null;
   max_slots?: number;
 }
 

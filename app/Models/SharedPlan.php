@@ -17,9 +17,11 @@ use Illuminate\Support\Facades\Crypt;
  * @property string $subscription_url 第三方订阅URL（加密存储）
  * @property string $subscription_format 订阅格式
  * @property int|null $group_id 服务器组ID
+ * @property array|null $group_ids 服务器组ID列表
  * @property array|null $tags 标签
  * @property array|null $prices 价格配置
  * @property int $max_slots 最大用户数
+ * @property int|null $device_limit 设备数量限制
  * @property int $used_slots 已使用slot数
  * @property array $nodes_config 解析后的节点配置
  * @property int $nodes_count 节点数量
@@ -97,9 +99,11 @@ class SharedPlan extends Model
         'subscription_url',
         'subscription_format',
         'group_id',
+        'group_ids',
         'tags',
         'prices',
         'max_slots',
+        'device_limit',
         'used_slots',
         'nodes_config',
         'nodes_count',
@@ -118,6 +122,7 @@ class SharedPlan extends Model
         'tags' => 'array',
         'prices' => 'array',
         'group_id' => 'integer',
+        'group_ids' => 'array',
         'max_slots' => 'integer',
         'used_slots' => 'integer',
         'nodes_count' => 'integer',
@@ -125,6 +130,7 @@ class SharedPlan extends Model
         'used_traffic' => 'integer',
         'sync_fail_count' => 'integer',
         'is_visible' => 'boolean',
+        'device_limit' => 'integer',
         'expire_at' => 'datetime',
         'last_sync_at' => 'datetime',
         'created_at' => 'datetime',
@@ -392,6 +398,10 @@ class SharedPlan extends Model
         
         foreach ($this->prices as $period => $price) {
             // 只包含价格大于0且周期有效的层级
+            if ($period === self::PERIOD_ONETIME) {
+                continue;
+            }
+
             if ($price > 0 && isset(self::PERIOD_DAYS[$period])) {
                 $days = self::PERIOD_DAYS[$period];
                 $periodName = self::PERIOD_NAMES[$period] ?? $period;

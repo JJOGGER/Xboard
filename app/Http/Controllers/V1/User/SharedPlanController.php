@@ -118,47 +118,56 @@ class SharedPlanController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            $data = $slots->map(function ($slot) {
-                $plan = $slot->sharedPlan;
-                $transferEnableGb = null;
-                if ($plan && $plan->total_traffic !== null) {
-                    $transferEnableGb = (int) floor(((int) $plan->total_traffic) / 1024 / 1024 / 1024);
-                }
-                
-                return [
-                    'slot' => [
-                        'id' => $slot->id,
-                        'status' => $slot->status,
-                        'allocated_at' => $slot->allocated_at->toIso8601String(),
-                        'expire_at' => $slot->expire_at->toIso8601String(),
-                    ],
-                    'plan' => [
-                        'id' => $plan->id,
-                        'name' => $plan->name,
-                        'group_id' => $plan->group_id,
-                        'tags' => $plan->tags,
-                        'prices' => $plan->prices,
-                        'subscription_format' => $plan->subscription_format,
-                        'nodes_count' => $plan->nodes_count,
-                        'nodes_config' => $plan->nodes_config, // Add parsed nodes list
-                        'pricing_tiers' => $plan->getActivePricingTiers(),
-                        // For MaClash UI compatibility
-                        'transfer_enable' => $transferEnableGb === null ? self::MOBILE_UNLIMITED_TRANSFER_GB : $transferEnableGb,
-                        'total_traffic' => $plan->total_traffic,
-                        'used_traffic' => $plan->used_traffic,
-                        'remaining_traffic' => $plan->getRemainingTraffic(),
-                        'group' => $plan->group ? [
-                            'id' => $plan->group->id,
-                            'name' => $plan->group->name,
-                        ] : null,
-                    ],
-                    'subscription_url' => $plan->subscription_url, // 返回原始第三方订阅地址
-                ];
-            });
+            // 只返回一个活跃的共享订阅（与传统订阅对齐）
+            $activeSlot = $slots->where('status', PlanSlot::STATUS_ACTIVE)->first();
+            
+            if (!$activeSlot) {
+                return $this->success([
+                    'data' => [],
+                    'total' => 0,
+                ]);
+            }
+
+            $plan = $activeSlot->sharedPlan;
+
+            $transferEnableGb = null;
+            if ($plan && $plan->total_traffic !== null) {
+                $transferEnableGb = (int) floor(((int) $plan->total_traffic) / 1024 / 1024 / 1024);
+            }
+
+            $data = [[
+                'slot' => [
+                    'id' => $activeSlot->id,
+                    'status' => $activeSlot->status,
+                    'allocated_at' => $activeSlot->allocated_at->toIso8601String(),
+                    'expire_at' => $activeSlot->expire_at->toIso8601String(),
+                ],
+                'plan' => [
+                    'id' => $plan->id,
+                    'name' => $plan->name,
+                    'group_id' => $plan->group_id,
+                    'tags' => $plan->tags,
+                    'prices' => $plan->prices,
+                    'subscription_format' => $plan->subscription_format,
+                    'nodes_count' => $plan->nodes_count,
+                    'nodes_config' => $plan->nodes_config, // Add parsed nodes list
+                    'pricing_tiers' => $plan->getActivePricingTiers(),
+                    // For MaClash UI compatibility
+                    'transfer_enable' => $transferEnableGb === null ? self::MOBILE_UNLIMITED_TRANSFER_GB : $transferEnableGb,
+                    'total_traffic' => $plan->total_traffic,
+                    'used_traffic' => $plan->used_traffic,
+                    'remaining_traffic' => $plan->getRemainingTraffic(),
+                    'group' => $plan->group ? [
+                        'id' => $plan->group->id,
+                        'name' => $plan->group->name,
+                    ] : null,
+                ],
+                'subscription_url' => $plan->subscription_url, // 返回原始第三方订阅地址
+            ]];
 
             return $this->success([
                 'data' => $data,
-                'total' => $slots->count(),
+                'total' => 1, // 只返回一个活跃订阅
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to fetch user subscriptions', [

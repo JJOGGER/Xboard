@@ -168,6 +168,9 @@ export default {
     none: '无',
     never: '永不',
     operationFailed: '操作失败',
+    select: '选择',
+    refresh: '刷新',
+    clear: '清空',
   },
   servers: {
     title: '服务器管理',
@@ -284,6 +287,10 @@ export default {
     orderList: '订单列表',
     orderDetail: '订单详情',
     noOrders: '暂无订单',
+
+    allOrders: '全部订单',
+    traditionalOrders: '普通订阅订单',
+    sharedOrders: '共享订阅订单',
     
     // Filters
     filterByStatus: '按状态筛选',
@@ -877,6 +884,7 @@ export default {
     emailRequired: '邮箱不能为空',
     invalidEmail: '邮箱格式不正确',
     total: '总计',
+    clickReset: '重置',
   },
   login: {
     title: '管理员登录',
@@ -961,6 +969,9 @@ export default {
     serverAccess: '服务器权限',
     serverAccessDesc: '购买此套餐的用户将被分配到所选的权限组',
     serverGroup: '权限组',
+    serverGroups: '权限组',
+    deviceLimit: '设备限制',
+    devices: '台设备',
     selectServerGroup: '选择权限组',
     serverGroupHint: '用户购买后将被分配到此权限组',
     groupRequired: '权限组不能为空',
@@ -1073,7 +1084,6 @@ export default {
     totalTrafficLabel: '总流量',
     usedTrafficLabel: '已用流量',
     remainingTraffic: '剩余流量',
-    trafficShared: '此流量由所有用户共享',
     syncInfo: '同步信息',
     lastSyncAt: '最后同步时间',
     syncStatusLabel: '同步状态',
@@ -1118,6 +1128,14 @@ export default {
     loadingPreview: '正在加载预览...',
     previewError: '预览失败',
     noPreviewData: '暂无预览数据',
+
+    autoCalculate: '自动计算',
+    everyMonth: '每月',
+    everyQuarter: '每季度',
+    everyHalfYear: '每半年',
+    everyYear: '每年',
+    months: '月',
+    
   },
     lastSync: '最后同步',
     never: '从未',
@@ -1149,7 +1167,6 @@ export default {
     totalTrafficLabel: '总流量',
     usedTrafficLabel: '已用流量',
     remainingTraffic: '剩余',
-    trafficShared: '所有用户共享',
     
     lastSyncAt: '最后同步',
     syncStatusLabel: '状态',

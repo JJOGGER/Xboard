@@ -4,10 +4,10 @@
     <el-aside v-if="!isMobile" :width="sidebarWidth" class="sidebar-container">
       <div class="sidebar-header">
         <h1 v-if="!isCollapsed" class="text-xl font-bold text-white">
-          XBoard Admin
+          aurora admin
         </h1>
         <h1 v-else class="text-xl font-bold text-white">
-          XB
+          AU
         </h1>
       </div>
 

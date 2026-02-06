@@ -66,7 +66,6 @@ class ShareOrderService
             $order->status = Order::STATUS_PENDING;
 
             // Apply coupon + vip discount for shared plan orders.
-            // NOTE: we keep the persisted period as shared tier key (monthly/quarterly/...).
             // CouponService period limitation uses PlanService legacy/new period keys,
             // so we temporarily map shared period -> legacy key for validation.
             if ($couponCode) {
@@ -77,7 +76,6 @@ class ShareOrderService
                     'yearly' => 'year_price',
                     'two_yearly' => 'two_year_price',
                     'three_yearly' => 'three_year_price',
-                    'onetime' => 'onetime_price',
                 ];
 
                 $originalPeriod = $order->period;
@@ -310,8 +308,13 @@ class ShareOrderService
             );
 
             $user = User::lockForUpdate()->find($order->user_id);
-            if ($user && $sharedPlan->group_id) {
-                $user->group_id = $sharedPlan->group_id;
+            if ($user) {
+                if ($sharedPlan->group_id) {
+                    $user->group_id = $sharedPlan->group_id;
+                }
+                if (!empty($sharedPlan->device_limit)) {
+                    $user->device_limit = $sharedPlan->device_limit;
+                }
                 $user->save();
             }
 

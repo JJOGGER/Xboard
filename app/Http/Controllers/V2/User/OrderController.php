@@ -36,7 +36,7 @@ class OrderController extends Controller
             // 确定套餐类型和价格
             if (isset($validated['shared_plan_id'])) {
                 $shareValidated = $request->validate([
-                    'period' => 'required|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly,onetime',
+                    'period' => 'required|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly',
                 ]);
 
                 $sharedPlan = SharedPlan::findOrFail($validated['shared_plan_id']);

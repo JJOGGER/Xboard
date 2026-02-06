@@ -6,11 +6,10 @@
         <div class="flex items-center justify-between h-16">
           <!-- Logo and Brand -->
           <div class="flex items-center">
-            <router-link to="/" class="flex items-center space-x-2">
-              <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                <span class="text-white font-bold text-lg">X</span>
-              </div>
-              <span class="text-xl font-bold text-gray-900 dark:text-white">XBoard</span>
+            <router-link to="/dashboard" class="flex items-center space-x-2">
+              <img src="/aurora_logo.jpg" alt="aurora" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="text-xl font-bold text-gray-900 dark:text-white">极光云</span>
+              <span class="text-sm font-semibold text-gray-500 dark:text-gray-400">aurora</span>
             </router-link>
           </div>
 
@@ -90,80 +89,10 @@
     <!-- Footer -->
     <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <!-- About Section -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
-              {{ t('footer.about') }}
-            </h3>
-            <p class="text-gray-600 dark:text-gray-400 text-sm">
-              {{ t('footer.aboutText') }}
-            </p>
-          </div>
-
-          <!-- Quick Links -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
-              {{ t('footer.quickLinks') }}
-            </h3>
-            <ul class="space-y-2">
-              <li>
-                <router-link to="/plans" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm">
-                  {{ t('footer.plans') }}
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/knowledge" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm">
-                  {{ t('footer.knowledge') }}
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/tickets" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm">
-                  {{ t('footer.support') }}
-                </router-link>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Legal -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
-              {{ t('footer.legal') }}
-            </h3>
-            <ul class="space-y-2">
-              <li>
-                <a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm">
-                  {{ t('footer.terms') }}
-                </a>
-              </li>
-              <li>
-                <a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm">
-                  {{ t('footer.privacy') }}
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Social -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
-              {{ t('footer.followUs') }}
-            </h3>
-            <div class="flex space-x-4">
-              <a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
-                <n-icon :component="LogoTwitter" size="20" />
-              </a>
-              <a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
-                <n-icon :component="LogoGithub" size="20" />
-              </a>
-            </div>
-          </div>
-        </div>
-
         <!-- Copyright -->
         <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
           <p class="text-center text-gray-600 dark:text-gray-400 text-sm">
-            © {{ currentYear }} XBoard. All rights reserved.
+            © {{ currentYear }} aurora. All rights reserved.
           </p>
         </div>
       </div>
@@ -216,6 +145,7 @@ const navItems = [
   { path: '/shared-plans', label: 'nav.plans' },
   { path: '/subscription', label: 'nav.subscription' },
   { path: '/orders', label: 'nav.orders' },
+  { path: '/referral', label: 'nav.referral' },
   { path: '/tickets', label: 'nav.support' }
 ]
 

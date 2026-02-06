@@ -772,7 +772,8 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "saving": "저장 중...",
       "save_success": "자동으로 저장됨",
       "placeholder": "입력해주세요",
-      "autoSaved": "자동으로 저장됨"
+      "autoSaved": "자동으로 저장됨",
+      "select": "select"
     },
     "subscribe_template": {
       "title": "구독 템플릿",

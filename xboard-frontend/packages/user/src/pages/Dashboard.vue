@@ -61,7 +61,42 @@
       </div>
     </div>
 
-   
+    <!-- My Subscriptions -->
+    <div class="overview-card">
+      <div class="overview-header">
+        <h2 class="overview-title">{{ t('dashboard.mySubscriptions.title') }}</h2>
+        <n-button text type="primary" @click="router.push({ name: 'Subscription' })">
+          {{ t('dashboard.mySubscriptions.viewAll') }}
+        </n-button>
+      </div>
+
+      <div v-if="!hasAnySubscription" class="empty-subscriptions">
+        {{ t('dashboard.mySubscriptions.empty') }}
+      </div>
+
+      <div v-else class="subscriptions-list">
+        <div v-if="traditionalSubscription" class="subscription-row clickable" @click="router.push({ name: 'Subscription' })">
+          <div class="subscription-type">{{ t('dashboard.mySubscriptions.traditional') }}</div>
+          <div class="subscription-name">{{ traditionalSubscription.name }}</div>
+          <div class="subscription-expire" v-if="traditionalSubscription.expiresAt">
+            {{ t('dashboard.mySubscriptions.expiresAt') }}: {{ traditionalSubscription.expiresAt }}
+          </div>
+        </div>
+
+        <div
+          v-for="sub in activeSharedSubscriptions"
+          :key="sub.slot.id"
+          class="subscription-row clickable"
+          @click="router.push({ name: 'Subscription' })"
+        >
+          <div class="subscription-type">{{ t('dashboard.mySubscriptions.shared') }}</div>
+          <div class="subscription-name">{{ sub.plan.name }}</div>
+          <div class="subscription-expire">
+            {{ t('dashboard.mySubscriptions.expiresAt') }}: {{ formatDate(sub.slot.expire_at) }}
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -72,8 +107,6 @@ import { useI18n } from 'vue-i18n'
 import { NButton, NTag, NProgress, NSpin, useMessage } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
 import { useSharedPlanStore } from '../stores/sharedPlan'
-import { orderApi, noticeApi } from '@xboard/shared'
-import type { Order, Notice } from '@xboard/shared'
 import dayjs from 'dayjs'
 
 const { t } = useI18n()
@@ -81,6 +114,24 @@ const router = useRouter()
 const message = useMessage()
 const authStore = useAuthStore()
 const sharedPlanStore = useSharedPlanStore()
+
+const activeSharedSubscriptions = computed(() =>
+  sharedPlanStore.userSubscriptions.filter((sub: any) => sub.slot?.status === 'active')
+)
+
+const traditionalSubscription = computed(() => {
+  if (authStore.user?.plan_id && authStore.user?.expired_at) {
+    return {
+      name: t('dashboard.overview.planActive'),
+      expiresAt: formatDate(authStore.user.expired_at * 1000),
+    }
+  }
+  return null
+})
+
+const hasAnySubscription = computed(() => {
+  return !!traditionalSubscription.value || activeSharedSubscriptions.value.length > 0
+})
 
 // Check if user has any active subscription (traditional or shared)
 const hasActiveSubscription = computed(() => {
@@ -129,14 +180,8 @@ const formatDate = (date: string | number) => {
 }
 
 onMounted(async () => {
-  console.log('Dashboard mounted')
-  console.log('Auth store user:', authStore.user)
-  console.log('Auth store token:', authStore.token)
-  console.log('Is authenticated:', authStore.isAuthenticated)
-  
   // 只有在已登录时才刷新用户信息和获取数据
   if (!authStore.isAuthenticated) {
-    console.warn('User not authenticated, skipping data fetch')
     return
   }
   
@@ -187,6 +232,52 @@ onMounted(async () => {
   padding: 2rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
+}
+
+.subscriptions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.subscription-row {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.subscription-row.clickable {
+  cursor: pointer;
+}
+
+.subscription-row.clickable:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.subscription-type {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.subscription-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.subscription-expire {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.empty-subscriptions {
+  padding: 24px 8px;
+  color: #94a3b8;
+  text-align: center;
 }
 
 .overview-header {

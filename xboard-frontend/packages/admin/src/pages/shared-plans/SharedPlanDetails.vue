@@ -136,15 +136,6 @@
               {{ formatBytes(currentPlan.total_traffic - currentPlan.used_traffic) }}
             </div>
           </div>
-
-          <el-alert
-            type="info"
-            :closable="false"
-            show-icon
-            class="traffic-note"
-          >
-            {{ t('sharedPlans.trafficShared') }}
-          </el-alert>
         </div>
       </el-card>
 

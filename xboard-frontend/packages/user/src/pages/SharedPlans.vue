@@ -43,22 +43,6 @@
         <!-- Plan Description -->
         <p v-if="plan.description" class="plan-description">{{ plan.description }}</p>
 
-        <!-- Plan Stats -->
-        <div class="plan-stats">
-         
-
-          <!-- Server Group (if available) -->
-          <div v-if="plan.group" class="stat-item">
-            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="7" rx="2" />
-              <rect x="2" y="14" width="20" height="7" rx="2" />
-            </svg>
-            <div class="stat-content">
-              <span class="stat-label">{{ t('sharedPlans.serverGroup') }}</span>
-              <span class="stat-value">{{ plan.group.name }}</span>
-            </div>
-          </div>
-        </div>
 
         <!-- Tags (if available) -->
         <div v-if="plan.tags && plan.tags.length > 0" class="plan-tags">

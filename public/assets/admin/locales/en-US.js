@@ -837,7 +837,8 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "saving": "Saving...",
       "save_success": "Saved automatically",
       "placeholder": "Please input",
-      "autoSaved": "Saved automatically"
+      "autoSaved": "Saved automatically",
+      "select": "select"
     },
     "subscribe_template": {
       "title": "Subscribe Templates",

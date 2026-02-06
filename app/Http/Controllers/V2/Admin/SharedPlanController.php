@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -154,10 +155,13 @@ class SharedPlanController extends Controller
             
             // Requirements 2.1, 3.1, 4.1
             'group_id' => 'nullable|integer|exists:v2_server_group,id', // Requirements 2.7, 8.2
+            'group_ids' => 'nullable|array|max:10',
+            'group_ids.*' => 'integer|exists:v2_server_group,id',
+            'device_limit' => 'nullable|integer|min:0',
             'tags' => 'nullable|array|max:10', // Requirements 8.4
             'tags.*' => 'string|max:20', // Requirements 8.5
             'prices' => 'required|array|min:1', // Requirements 4.9, 8.3
-            'prices.*' => 'integer|min:1',
+            'prices.*' => 'integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -167,11 +171,23 @@ class SharedPlanController extends Controller
         try {
             // 获取价格配置
             $prices = $request->input('prices');
+
+            if (is_array($prices) && array_key_exists(SharedPlan::PERIOD_ONETIME, $prices)) {
+                return $this->fail([400, '不支持一次性价格']);
+            }
             
             // 验证至少有一个价格大于0（Requirements 4.9, 8.3）
             if (empty($prices) || !array_filter($prices, fn($p) => $p > 0)) {
                 return $this->fail([400, '至少需要设置一个价格']);
             }
+
+            $groupIds = $request->input('group_ids');
+            if (!is_array($groupIds) || empty($groupIds)) {
+                $groupId = $request->input('group_id');
+                $groupIds = $groupId ? [(int) $groupId] : [];
+            }
+
+            $primaryGroupId = !empty($groupIds) ? (int) $groupIds[0] : null;
 
             // 导入订阅并创建套餐
             $plan = $this->importService->importAndCreatePlan(
@@ -180,7 +196,9 @@ class SharedPlanController extends Controller
                     'name' => $request->input('name'),
                     'description' => $request->input('description'),
                     'max_slots' => $request->input('max_slots'),
-                    'group_id' => $request->input('group_id'), // Requirements 2.1
+                    'group_id' => $primaryGroupId,
+                    'group_ids' => $groupIds,
+                    'device_limit' => $request->input('device_limit'),
                     'tags' => $request->input('tags'), // Requirements 3.1, 3.2, 3.3
                     'prices' => $prices, // Requirements 4.1
                 ],
@@ -189,8 +207,16 @@ class SharedPlanController extends Controller
 
             // 加载关联关系
             $plan->load('group');
+            $groups = !empty($plan->group_ids)
+                ? \App\Models\ServerGroup::query()->whereIn('id', $plan->group_ids)->get(['id', 'name'])
+                : collect();
 
             // 返回创建的套餐信息（Requirements 7.1）
+            $sanitizedPrices = $plan->prices;
+            if (is_array($sanitizedPrices) && array_key_exists(SharedPlan::PERIOD_ONETIME, $sanitizedPrices)) {
+                unset($sanitizedPrices[SharedPlan::PERIOD_ONETIME]);
+            }
+
             return $this->success([
                 'id' => $plan->id,
                 'name' => $plan->name,
@@ -200,13 +226,16 @@ class SharedPlanController extends Controller
                 'max_slots' => $plan->max_slots,
                 'used_slots' => $plan->used_slots,
                 'group_id' => $plan->group_id,
+                'group_ids' => $plan->group_ids ?? [],
                 'group' => $plan->group ? [
                     'id' => $plan->group->id,
                     'name' => $plan->group->name,
                     'server_count' => $plan->group->server_count,
                 ] : null,
+                'groups' => $groups,
                 'tags' => $plan->tags,
-                'prices' => $plan->prices,
+                'prices' => $sanitizedPrices,
+                'device_limit' => $plan->device_limit,
                 'is_visible' => $plan->is_visible,
                 'sync_status' => $plan->sync_status,
                 'total_traffic' => $plan->total_traffic,
@@ -286,6 +315,15 @@ class SharedPlanController extends Controller
 
             // 格式化返回数据（Requirements 2.6, 3.4, 4.1, 7.3）
             $data = $plans->map(function ($plan) {
+                $groups = !empty($plan->group_ids)
+                    ? \App\Models\ServerGroup::query()->whereIn('id', $plan->group_ids)->get(['id', 'name'])
+                    : collect();
+
+                $sanitizedPrices = $plan->prices;
+                if (is_array($sanitizedPrices) && array_key_exists(SharedPlan::PERIOD_ONETIME, $sanitizedPrices)) {
+                    unset($sanitizedPrices[SharedPlan::PERIOD_ONETIME]);
+                }
+
                 $result = [
                     'id' => $plan->id,
                     'name' => $plan->name,
@@ -309,13 +347,16 @@ class SharedPlanController extends Controller
                     
                     // 新字段（Requirements 2.6, 3.4, 4.1）
                     'group_id' => $plan->group_id,
+                    'group_ids' => $plan->group_ids ?? [],
                     'group' => $plan->group ? [
                         'id' => $plan->group->id,
                         'name' => $plan->group->name,
                         'server_count' => $plan->group->server_count,
                     ] : null,
+                    'groups' => $groups,
                     'tags' => $plan->tags,
-                    'prices' => $plan->prices,
+                    'prices' => $sanitizedPrices,
+                    'device_limit' => $plan->device_limit,
                 ];
                 
                 // 添加定价层级信息（Requirements 4.1）
@@ -378,6 +419,11 @@ class SharedPlanController extends Controller
             // 管理端直接返回原始订阅地址（与传统订阅对齐）
             $originalUrl = $plan->subscription_url;
 
+            $sanitizedPrices = $plan->prices;
+            if (is_array($sanitizedPrices) && array_key_exists(SharedPlan::PERIOD_ONETIME, $sanitizedPrices)) {
+                unset($sanitizedPrices[SharedPlan::PERIOD_ONETIME]);
+            }
+
             $result = [
                 'id' => $plan->id,
                 'name' => $plan->name,
@@ -387,6 +433,7 @@ class SharedPlanController extends Controller
                 'nodes_count' => $plan->nodes_count,
                 'nodes_config' => $plan->nodes_config, // Include parsed nodes for admin view
                 'max_slots' => $plan->max_slots,
+                'device_limit' => $plan->device_limit,
                 'used_slots' => $plan->used_slots,
                 'available_slots' => $plan->getAvailableSlotsCount(),
                 'is_visible' => $plan->is_visible,
@@ -404,13 +451,18 @@ class SharedPlanController extends Controller
                 
                 // 新字段（Requirements 7.4）
                 'group_id' => $plan->group_id,
+                'group_ids' => $plan->group_ids ?? [],
                 'group' => $plan->group ? [
                     'id' => $plan->group->id,
                     'name' => $plan->group->name,
                     'server_count' => $plan->group->server_count,
                 ] : null,
+                'groups' => !empty($plan->group_ids)
+                    ? \App\Models\ServerGroup::query()->whereIn('id', $plan->group_ids)->get(['id', 'name'])
+                    : [],
                 'tags' => $plan->tags,
-                'prices' => $plan->prices,
+                'prices' => $sanitizedPrices,
+                'device_limit' => $plan->device_limit,
             ];
             
             // 添加完整的定价详情（Requirements 7.4）
@@ -438,16 +490,20 @@ class SharedPlanController extends Controller
     {
         // 验证请求数据
         $validator = Validator::make($request->all(), [
+            'subscription_url' => 'sometimes|required|string|max:2048',
             'name' => 'sometimes|required|string|min:2|max:100', // Requirements 8.1
             'description' => 'nullable|string',
             'max_slots' => 'sometimes|required|integer|min:1|max:1000',
             
             // 新字段（Requirements 2.1, 3.1, 4.1）
             'group_id' => 'nullable|integer|exists:v2_server_group,id', // Requirements 2.7, 8.2
+            'group_ids' => 'nullable|array|max:10',
+            'group_ids.*' => 'integer|exists:v2_server_group,id',
+            'device_limit' => 'nullable|integer|min:0',
             'tags' => 'nullable|array|max:10', // Requirements 8.4
             'tags.*' => 'string|max:20', // Requirements 8.5
             'prices' => 'nullable|array',
-            'prices.*' => 'integer|min:1',
+            'prices.*' => 'integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -459,6 +515,14 @@ class SharedPlanController extends Controller
 
             if (!$plan) {
                 return $this->fail([404, '套餐不存在']);
+            }
+
+            $shouldResync = false;
+            $newSubscriptionUrl = null;
+
+            if ($request->has('subscription_url')) {
+                $newSubscriptionUrl = $request->input('subscription_url');
+                $shouldResync = $newSubscriptionUrl !== $plan->subscription_url;
             }
 
             // 如果要更新max_slots，验证不小于used_slots
@@ -475,14 +539,96 @@ class SharedPlanController extends Controller
             // 如果要更新prices，验证至少有一个价格（Requirements 4.9, 8.3）
             if ($request->has('prices')) {
                 $prices = $request->input('prices');
+                if (is_array($prices) && array_key_exists(SharedPlan::PERIOD_ONETIME, $prices)) {
+                    return $this->fail([400, '不支持一次性价格']);
+                }
                 if (empty($prices) || !array_filter($prices, fn($p) => $p > 0)) {
                     return $this->fail([400, '至少需要设置一个价格']);
                 }
             }
 
-            // 更新套餐
-            $updateData = $request->only(['name', 'description', 'max_slots', 'group_id', 'tags', 'prices']);
-            $plan->update($updateData);
+            DB::transaction(function () use ($request, $plan, $shouldResync, $newSubscriptionUrl) {
+                // 更新套餐基本字段
+                $updateData = $request->only([
+                    'subscription_url',
+                    'name',
+                    'description',
+                    'max_slots',
+                    'group_id',
+                    'group_ids',
+                    'device_limit',
+                    'tags',
+                    'prices'
+                ]);
+
+                // Compatibility: some environments (especially sqlite dev DB) may not have all columns.
+                // Filter out keys that are not present to avoid SQL errors like "no such column".
+                $table = $plan->getTable();
+                foreach (array_keys($updateData) as $key) {
+                    if (!Schema::hasColumn($table, $key)) {
+                        unset($updateData[$key]);
+                    }
+                }
+
+                // Backward/forward compatibility: ensure group_id is always present
+                if ($request->has('group_ids')) {
+                    $incomingGroupIds = $request->input('group_ids');
+                    if (is_array($incomingGroupIds) && !empty($incomingGroupIds)) {
+                        $updateData['group_id'] = (int) $incomingGroupIds[0];
+                    } else {
+                        $updateData['group_id'] = null;
+                    }
+                }
+
+                if (!empty($updateData)) {
+                    $plan->update($updateData);
+                }
+
+                if ($shouldResync) {
+                    $response = $this->importService->fetchSubscription($newSubscriptionUrl);
+                    $content = $response['content'];
+                    $headers = $response['headers'];
+
+                    $format = $this->parserService->detectFormat($content);
+                    if ($format === SubscriptionParserService::FORMAT_UNKNOWN) {
+                        throw new \Exception(
+                            'Unsupported subscription format. Supported formats: ' .
+                            implode(', ', $this->parserService->getSupportedFormats())
+                        );
+                    }
+
+                    $nodes = $this->parserService->parse($content);
+                    if (empty($nodes)) {
+                        throw new \Exception('No nodes found in subscription');
+                    }
+
+                    $nodes = $this->filterFakeNodes($nodes);
+                    if (empty($nodes)) {
+                        throw new \Exception('No valid nodes found in subscription after filtering');
+                    }
+
+                    $trafficInfo = $this->parserService->parseTrafficInfoFromHeaders($headers);
+
+                    $plan->subscription_format = $format;
+                    $plan->nodes_config = $nodes;
+                    $plan->nodes_count = count($nodes);
+                    $plan->sync_status = SharedPlan::SYNC_STATUS_ACTIVE;
+                    $plan->sync_error = null;
+                    $plan->sync_fail_count = 0;
+                    $plan->last_sync_at = now();
+
+                    if ($trafficInfo) {
+                        $plan->total_traffic = $trafficInfo->total;
+                        $plan->used_traffic = $trafficInfo->getUsed();
+
+                        if ($trafficInfo->expire) {
+                            $plan->expire_at = \Carbon\Carbon::createFromTimestamp($trafficInfo->expire);
+                        }
+                    }
+
+                    $plan->save();
+                }
+            });
 
             // 如果max_slots增加了，可能需要更新可见性
             if ($request->has('max_slots')) {
@@ -492,21 +638,34 @@ class SharedPlanController extends Controller
             // 加载关联关系
             $plan->load('group');
 
+            $groups = !empty($plan->group_ids)
+                ? \App\Models\ServerGroup::query()->whereIn('id', $plan->group_ids)->get(['id', 'name'])
+                : collect();
+
+            $sanitizedPrices = $plan->prices;
+            if (is_array($sanitizedPrices) && array_key_exists(SharedPlan::PERIOD_ONETIME, $sanitizedPrices)) {
+                unset($sanitizedPrices[SharedPlan::PERIOD_ONETIME]);
+            }
+
             $result = [
                 'id' => $plan->id,
                 'name' => $plan->name,
                 'description' => $plan->description,
+                'subscription_url' => $plan->subscription_url,
                 'max_slots' => $plan->max_slots,
                 'used_slots' => $plan->used_slots,
                 'is_visible' => $plan->is_visible,
                 'group_id' => $plan->group_id,
+                'group_ids' => $plan->group_ids ?? [],
                 'group' => $plan->group ? [
                     'id' => $plan->group->id,
                     'name' => $plan->group->name,
                     'server_count' => $plan->group->server_count,
                 ] : null,
+                'groups' => $groups,
                 'tags' => $plan->tags,
-                'prices' => $plan->prices,
+                'prices' => $sanitizedPrices,
+                'device_limit' => $plan->device_limit,
                 'updated_at' => $plan->updated_at->toIso8601String(),
             ];
             

@@ -9,6 +9,12 @@
 
     <!-- Filters -->
     <el-card class="filter-card">
+      <el-tabs v-model="orderKind" @tab-change="handleSearch" style="margin-bottom: 12px;">
+        <el-tab-pane :label="t('orders.allOrders')" name="all" />
+        <el-tab-pane :label="t('orders.traditionalOrders')" name="traditional" />
+        <el-tab-pane :label="t('orders.sharedOrders')" name="shared" />
+      </el-tabs>
+
       <el-form :model="filters" inline>
         <el-form-item :label="t('common.search')">
           <el-input
@@ -229,9 +235,11 @@ const assignModalVisible = ref(false);
 const updateModalVisible = ref(false);
 const selectedOrderId = ref<number | null>(null);
 const selectedOrder = ref<Order | null>(null);
+const orderKind = ref<'all' | 'traditional' | 'shared'>('all');
 
 // Methods
 const handleSearch = async () => {
+  (filters as any).order_kind = orderKind.value;
   orderStore.setFilters(filters);
   orderStore.setPage(1);
   await loadOrders();

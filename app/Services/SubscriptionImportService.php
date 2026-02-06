@@ -405,6 +405,8 @@ class SubscriptionImportService
             
             // 新字段（Requirements 2.1, 3.1, 4.1）
             $sharedPlan->group_id = $planData['group_id'] ?? null;
+            $sharedPlan->group_ids = $planData['group_ids'] ?? null;
+            $sharedPlan->device_limit = $planData['device_limit'] ?? null;
             $sharedPlan->tags = $planData['tags'] ?? null;
             // 价格从元转换为分存储到数据库
             $sharedPlan->prices = $this->convertPricesToCents($planData['prices'] ?? []);

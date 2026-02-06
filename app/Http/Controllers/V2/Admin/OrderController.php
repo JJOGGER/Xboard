@@ -88,9 +88,43 @@ class OrderController extends Controller
 
     public function fetch(Request $request)
     {
-        $current = $request->input('current', 1);
-        $pageSize = $request->input('pageSize', 10);
+        $current = (int) $request->input('current', $request->input('page', 1));
+        $pageSize = (int) $request->input('pageSize', $request->input('page_size', 10));
         $orderModel = Order::with(['plan:id,name', 'sharedPlan:id,name']);
+
+        // Support lightweight filters used by the new admin UI
+        if ($request->filled('search')) {
+            $search = (string) $request->input('search');
+            $orderModel->where('trade_no', 'like', "%{$search}%");
+        }
+
+        if ($request->has('status') && $request->input('status') !== null && $request->input('status') !== '') {
+            $orderModel->where('status', (int) $request->input('status'));
+        }
+
+        if ($request->filled('date_start')) {
+            $startTs = strtotime((string) $request->input('date_start') . ' 00:00:00');
+            if ($startTs !== false) {
+                $orderModel->where('created_at', '>=', $startTs);
+            }
+        }
+
+        if ($request->filled('date_end')) {
+            $endTs = strtotime((string) $request->input('date_end') . ' 23:59:59');
+            if ($endTs !== false) {
+                $orderModel->where('created_at', '<=', $endTs);
+            }
+        }
+
+        // Order kind filter: all | shared | traditional
+        if ($request->filled('order_kind')) {
+            $kind = (string) $request->input('order_kind');
+            if ($kind === 'shared') {
+                $orderModel->whereNotNull('shared_plan_id');
+            } elseif ($kind === 'traditional') {
+                $orderModel->whereNull('shared_plan_id');
+            }
+        }
 
         if ($request->boolean('is_commission')) {
             $orderModel->whereNotNull('invite_user_id')

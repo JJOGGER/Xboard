@@ -221,7 +221,7 @@ export const orderApi = {
    * Get order by ID (admin endpoint)
    */
   async getOrderById(id: number): Promise<ApiResponse<Order>> {
-    return apiClient.get<Order>(`/v2/order/detail/${id}`);
+    return apiClient.post<Order>(`/v2/order/detail`, { id });
   },
 
   /**

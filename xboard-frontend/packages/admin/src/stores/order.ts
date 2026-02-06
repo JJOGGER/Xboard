@@ -39,17 +39,25 @@ export const useOrderStore = defineStore('order', () => {
   async function fetchOrders(params?: {
     page?: number;
     page_size?: number;
-    filters?: OrderFilters;
+    filters?: OrderFilters & { order_kind?: 'all' | 'shared' | 'traditional' };
   }): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
+      const effectiveFilters: any = params?.filters || filters.value;
       const response = await orderApi.getOrders({
-        page: params?.page || currentPage.value,
-        page_size: params?.page_size || pageSize.value,
-        filters: params?.filters || filters.value,
-      });
+        // backend expects current/pageSize
+        current: params?.page || currentPage.value,
+        pageSize: params?.page_size || pageSize.value,
+        search: effectiveFilters?.search,
+        status: effectiveFilters?.status,
+        date_start: effectiveFilters?.date_start,
+        date_end: effectiveFilters?.date_end,
+        order_kind: effectiveFilters?.order_kind && effectiveFilters?.order_kind !== 'all'
+          ? effectiveFilters.order_kind
+          : undefined,
+      } as any);
 
       // apiClient 返回的数据在不同后端实现下可能有两种结构：
       // 1) { status, message, data: { data: [...], total, current_page, per_page } }

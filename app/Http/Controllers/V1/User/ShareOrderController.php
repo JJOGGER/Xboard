@@ -29,7 +29,7 @@ class ShareOrderController extends Controller
     {
         $request->validate([
             'shared_plan_id' => 'required|integer|exists:v2_shared_plans,id',
-            'period' => 'required|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly,onetime',
+            'period' => 'required|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly',
             'coupon_code' => 'nullable|string',
         ]);
 

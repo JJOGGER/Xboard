@@ -92,17 +92,6 @@
           </div>
           
           <div class="plan-actions">
-            <el-tooltip :content="t('sharedPlans.viewDetails')">
-              <el-button
-                type="primary"
-                size="small"
-                circle
-                @click="handleViewDetails(plan)"
-              >
-                <el-icon><View /></el-icon>
-              </el-button>
-            </el-tooltip>
-            
             <el-tooltip :content="t('sharedPlans.sync')">
               <el-button
                 type="success"
@@ -167,40 +156,37 @@
           </div>
           
           <!-- Server Group Section -->
-          <div v-if="plan.group" class="group-section">
-            <el-icon class="group-icon"><Grid /></el-icon>
-            <span class="group-label">{{ t('sharedPlans.serverGroup') }}:</span>
-            <span class="group-name">{{ plan.group.name }}</span>
-            <span class="group-servers">({{ plan.group.server_count }} {{ t('sharedPlans.servers') }})</span>
-          </div>
-          
-          <!-- Stats Grid -->
-          <div class="stats-grid">
-            <div class="stat-item">
-              <div class="stat-label">{{ t('sharedPlans.format') }}</div>
-              <div class="stat-value">
-                <el-tag size="small">{{ plan.subscription_format.toUpperCase() }}</el-tag>
-              </div>
+          <div class="plan-meta">
+            <div v-if="(plan.groups && plan.groups.length > 0) || plan.group" class="plan-meta-item">
+              <el-icon class="plan-meta-icon"><Grid /></el-icon>
+              <span class="plan-meta-text">
+                <template v-if="plan.groups && plan.groups.length > 0">
+                  {{ plan.groups.length }} {{ t('sharedPlans.serverGroups') }}
+                </template>
+                <template v-else>
+                  {{ plan.group?.name }} ({{ plan.group?.server_count }} {{ t('sharedPlans.servers') }})
+                </template>
+              </span>
             </div>
-            
-            <div class="stat-item">
-              <div class="stat-label">{{ t('sharedPlans.nodesCountLabel') }}</div>
-              <div class="stat-value">{{ plan.nodes_count }}</div>
+            <div class="plan-meta-item">
+              <span class="plan-meta-label">{{ t('sharedPlans.nodesCountLabel') }}:</span>
+              <span class="plan-meta-text">{{ plan.nodes_count }}</span>
             </div>
           </div>
 
           <!-- Pricing Section -->
           <div v-if="plan.prices" class="pricing-section">
             <div class="pricing-label">{{ t('sharedPlans.pricing') }}:</div>
-            <div class="pricing-items">
-              <span
+            <div class="pricing-items-grid">
+              <div
                 v-for="(price, period) in plan.prices"
                 :key="period"
                 v-show="price && price > 0"
-                class="pricing-badge"
+                class="pricing-grid-item"
               >
-                {{ getPeriodLabel(period) }}: ¥{{ (price / 100).toFixed(2) }}
-              </span>
+                <div class="pricing-grid-period">{{ getPeriodLabel(period) }}</div>
+                <div class="pricing-grid-value">¥{{ (price / 100).toFixed(2) }}</div>
+              </div>
             </div>
           </div>
 
@@ -276,6 +262,60 @@
         ref="editFormRef"
         label-position="top"
       >
+        <el-form-item :label="t('sharedPlans.subscriptionUrl')" prop="subscription_url">
+          <el-input v-model="editForm.subscription_url" type="textarea" :rows="2" />
+        </el-form-item>
+
+        <el-form-item :label="t('sharedPlans.serverGroups')" prop="group_ids">
+          <el-select
+            v-model="editForm.group_ids"
+            multiple
+            :placeholder="t('common.select')"
+            clearable
+            filterable
+            style="width: 100%"
+            :loading="loadingGroups"
+          >
+            <el-option
+              v-for="group in serverGroups"
+              :key="group.id"
+              :label="`${group.name} (${group.server_count || 0} ${t('sharedPlans.servers')})`"
+              :value="group.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item :label="t('sharedPlans.deviceLimit')" prop="device_limit">
+          <el-input-number
+            v-model="editForm.device_limit"
+            :min="0"
+            :step="1"
+            :precision="0"
+            :controls="false"
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item :label="t('sharedPlans.tags')" prop="tags">
+          <el-select
+            v-model="editForm.tags"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            :placeholder="t('sharedPlans.tagsPlaceholder')"
+            style="width: 100%"
+            :max-collapse-tags="3"
+          >
+            <el-option
+              v-for="tag in suggestedTags"
+              :key="tag"
+              :label="tag"
+              :value="tag"
+            />
+          </el-select>
+        </el-form-item>
+
         <el-form-item :label="t('sharedPlans.planName')" prop="name">
           <el-input v-model="editForm.name" />
         </el-form-item>
@@ -289,6 +329,7 @@
             v-model="editForm.max_slots"
             :min="selectedPlan.used_slots"
             :max="1000"
+            :controls="false"
             style="width: 100%"
           />
         </el-form-item>
@@ -316,117 +357,84 @@
             </div>
           </div>
 
-          <div class="pricing-grid">
-            <el-row :gutter="20">
-              <el-col :span="8">
-                <el-form-item :label="`${t('sharedPlans.monthly')} (${t('sharedPlans.everyMonth')})`">
-                  <el-input-number
-                    v-model="editForm.prices.monthly"
-                    :min="0"
-                    :step="1"
-                    :precision="2"
-                    controls-position="right"
-                    style="width: 100%"
-                    @mousedown.left="handleSelectAll"
-                  />
-                  <div class="form-hint">30 {{ t('sharedPlans.days') }}</div>
-                </el-form-item>
-              </el-col>
-              
-              <el-col :span="8">
-                <el-form-item :label="`${t('sharedPlans.quarterly')} (3${t('sharedPlans.months')})`">
-                  <el-input-number
-                    v-model="editForm.prices.quarterly"
-                    :min="0"
-                    :step="1"
-                    :precision="2"
-                    controls-position="right"
-                    style="width: 100%"
-                    @mousedown.left="handleSelectAll"
-                  />
-                  <div class="form-hint">90 {{ t('sharedPlans.days') }}</div>
-                </el-form-item>
-              </el-col>
-              
-              <el-col :span="8">
-                <el-form-item :label="`${t('sharedPlans.halfYearly')} (6${t('sharedPlans.months')})`">
-                  <el-input-number
-                    v-model="editForm.prices.half_yearly"
-                    :min="0"
-                    :step="1"
-                    :precision="2"
-                    controls-position="right"
-                    style="width: 100%"
-                    @mousedown.left="handleSelectAll"
-                  />
-                  <div class="form-hint">180 {{ t('sharedPlans.days') }}</div>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            
-            <el-row :gutter="20">
-              <el-col :span="8">
-                <el-form-item :label="`${t('sharedPlans.yearly')} (12${t('sharedPlans.months')})`">
-                  <el-input-number
-                    v-model="editForm.prices.yearly"
-                    :min="0"
-                    :step="1"
-                    :precision="2"
-                    controls-position="right"
-                    style="width: 100%"
-                    @mousedown.left="handleSelectAll"
-                  />
-                  <div class="form-hint">365 {{ t('sharedPlans.days') }}</div>
-                </el-form-item>
-              </el-col>
-              
-              <el-col :span="8">
-                <el-form-item :label="`${t('sharedPlans.twoYearly')} (24${t('sharedPlans.months')})`">
-                  <el-input-number
-                    v-model="editForm.prices.two_yearly"
-                    :min="0"
-                    :step="1"
-                    :precision="2"
-                    controls-position="right"
-                    style="width: 100%"
-                    @mousedown.left="handleSelectAll"
-                  />
-                  <div class="form-hint">730 {{ t('sharedPlans.days') }}</div>
-                </el-form-item>
-              </el-col>
-              
-              <el-col :span="8">
-                <el-form-item :label="`${t('sharedPlans.threeYearly')} (36${t('sharedPlans.months')})`">
-                  <el-input-number
-                    v-model="editForm.prices.three_yearly"
-                    :min="0"
-                    :step="1"
-                    :precision="2"
-                    controls-position="right"
-                    style="width: 100%"
-                    @mousedown.left="handleSelectAll"
-                  />
-                  <div class="form-hint">1095 {{ t('sharedPlans.days') }}</div>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            
-            <el-row :gutter="20">
-              <el-col :span="8">
-                <el-form-item :label="t('sharedPlans.onetime')">
-                  <el-input-number
-                    v-model="editForm.prices.onetime"
-                    :min="0"
-                    :step="1"
-                    :precision="2"
-                    controls-position="right"
-                    style="width: 100%"
-                    @mousedown.left="handleSelectAll"
-                  />
-                  <div class="form-hint">{{ t('sharedPlans.permanent') }}</div>
-                </el-form-item>
-              </el-col>
-            </el-row>
+          <div class="pricing-edit-grid">
+            <div class="pricing-edit-tile">
+              <div class="pricing-edit-period">{{ t('sharedPlans.monthly') }}</div>
+              <el-input-number
+                v-model="editForm.prices.monthly"
+                :min="0"
+                :step="1"
+                :precision="2"
+                :controls="false"
+                style="width: 100%"
+                @mousedown.left="handleSelectAll"
+              />
+            </div>
+
+            <div class="pricing-edit-tile">
+              <div class="pricing-edit-period">{{ t('sharedPlans.quarterly') }}</div>
+              <el-input-number
+                v-model="editForm.prices.quarterly"
+                :min="0"
+                :step="1"
+                :precision="2"
+                :controls="false"
+                style="width: 100%"
+                @mousedown.left="handleSelectAll"
+              />
+            </div>
+
+            <div class="pricing-edit-tile">
+              <div class="pricing-edit-period">{{ t('sharedPlans.halfYearly') }}</div>
+              <el-input-number
+                v-model="editForm.prices.half_yearly"
+                :min="0"
+                :step="1"
+                :precision="2"
+                :controls="false"
+                style="width: 100%"
+                @mousedown.left="handleSelectAll"
+              />
+            </div>
+
+            <div class="pricing-edit-tile">
+              <div class="pricing-edit-period">{{ t('sharedPlans.yearly') }}</div>
+              <el-input-number
+                v-model="editForm.prices.yearly"
+                :min="0"
+                :step="1"
+                :precision="2"
+                :controls="false"
+                style="width: 100%"
+                @mousedown.left="handleSelectAll"
+              />
+            </div>
+
+            <div class="pricing-edit-tile">
+              <div class="pricing-edit-period">{{ t('sharedPlans.twoYearly') }}</div>
+              <el-input-number
+                v-model="editForm.prices.two_yearly"
+                :min="0"
+                :step="1"
+                :precision="2"
+                :controls="false"
+                style="width: 100%"
+                @mousedown.left="handleSelectAll"
+              />
+            </div>
+
+            <div class="pricing-edit-tile">
+              <div class="pricing-edit-period">{{ t('sharedPlans.threeYearly') }}</div>
+              <el-input-number
+                v-model="editForm.prices.three_yearly"
+                :min="0"
+                :step="1"
+                :precision="2"
+                :controls="false"
+                style="width: 100%"
+                @mousedown.left="handleSelectAll"
+              />
+            </div>
           </div>
         </div>
       </el-form>
@@ -448,7 +456,6 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
 import {
   Plus,
-  View,
   Edit,
   Delete,
   Link,
@@ -457,6 +464,8 @@ import {
   Grid,
 } from '@element-plus/icons-vue';
 import { useSharedPlanStore } from '../../stores/sharedPlan';
+import { serverApi } from '@xboard/shared/api/server';
+import type { ServerGroup } from '@xboard/shared/types/server';
 import type { SharedPlan } from '@xboard/shared/api/sharedPlan';
 
 const { t } = useI18n();
@@ -475,8 +484,32 @@ const filters = ref({
   tag: '',
 });
 
+// Server groups (for editing group_id)
+const serverGroups = ref<ServerGroup[]>([]);
+const loadingGroups = ref(false);
+
+const suggestedTags = ref<string[]>([
+  '试用', '高速', '稳定', '美国', '香港', '日本', '新加坡',
+  '台湾', '韩国', '英国', '德国', '加拿大', '澳大利亚',
+  'trial', 'high-speed', 'stable', 'premium', 'basic'
+]);
+
+const sanitizeText = (input: unknown): string => {
+  const s = String(input ?? '');
+  // Remove surrogate pairs (most emoji) to avoid DB charset issues on some installs.
+  return s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+};
+
+const containsEmoji = (input: unknown): boolean => {
+  return /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(String(input ?? ''));
+};
+
 // Edit form
 const editForm = ref({
+  subscription_url: '',
+  group_ids: [] as number[],
+  device_limit: null as number | null,
+  tags: [] as string[],
   name: '',
   description: '',
   base_price: 0, // 基础价格（月付价格，单位：元）
@@ -487,14 +520,44 @@ const editForm = ref({
     yearly: 0,
     two_yearly: 0,
     three_yearly: 0,
-    onetime: 0,
   },
-  max_slots: 0,
+  max_slots: 1,
 });
 
 const editRules: FormRules = {
+  subscription_url: [
+    { required: true, message: t('sharedPlans.urlRequired'), trigger: 'blur' },
+    { type: 'url', message: t('sharedPlans.urlInvalid'), trigger: 'blur' },
+  ],
+  tags: [
+    {
+      validator: (_rule: any, value: any, callback: any) => {
+        const tags = Array.isArray(value) ? value.map((v: any) => String(v)) : [];
+        if (tags.length > 10) {
+          callback(new Error(t('sharedPlans.maxTagsExceeded')));
+          return;
+        }
+        if (tags.some((tag: string) => tag.length > 20)) {
+          callback(new Error(t('sharedPlans.tagTooLong')));
+          return;
+        }
+        callback();
+      },
+      trigger: 'change'
+    }
+  ],
   name: [
     { required: true, message: t('sharedPlans.nameRequired'), trigger: 'blur' },
+    {
+      validator: (_rule: any, value: any, callback: any) => {
+        if (containsEmoji(value)) {
+          callback(new Error('不支持表情符号'));
+          return;
+        }
+        callback();
+      },
+      trigger: 'blur'
+    }
   ],
   base_price: [
     { required: true, message: t('sharedPlans.priceRequired'), trigger: 'blur' },
@@ -555,13 +618,12 @@ const formatPlanPrice = (plan: SharedPlan): string => {
     const yuan = (cents as number) / 100;
     
     const periodLabels: Record<string, string> = {
-      monthly: '月付',
-      quarterly: '季付',
-      half_yearly: '半年付',
-      yearly: '年付',
-      two_yearly: '两年付',
-      three_yearly: '三年付',
-      onetime: '一次性'
+      monthly: t('sharedPlans.monthly'),
+      quarterly: t('sharedPlans.quarterly'),
+      half_yearly: t('sharedPlans.halfYearly'),
+      yearly: t('sharedPlans.yearly'),
+      two_yearly: t('sharedPlans.twoYearly'),
+      three_yearly: t('sharedPlans.threeYearly'),
     };
     
     return `¥${yuan.toFixed(2)} (${periodLabels[period] || period})`;
@@ -577,13 +639,12 @@ const formatPlanPrice = (plan: SharedPlan): string => {
 
 const getPeriodLabel = (period: string): string => {
   const labels: Record<string, string> = {
-    monthly: '月付',
-    quarterly: '季付',
-    half_yearly: '半年付',
-    yearly: '年付',
-    two_yearly: '两年付',
-    three_yearly: '三年付',
-    onetime: '一次性'
+    monthly: t('sharedPlans.monthly'),
+    quarterly: t('sharedPlans.quarterly'),
+    half_yearly: t('sharedPlans.halfYearly'),
+    yearly: t('sharedPlans.yearly'),
+    two_yearly: t('sharedPlans.twoYearly'),
+    three_yearly: t('sharedPlans.threeYearly'),
   };
   return labels[period] || period;
 };
@@ -633,10 +694,6 @@ const handleImport = () => {
   router.push({ name: 'ImportSubscription' });
 };
 
-const handleViewDetails = (plan: SharedPlan) => {
-  router.push({ name: 'SharedPlanDetails', params: { id: plan.id } });
-};
-
 const handleEdit = (plan: SharedPlan) => {
   selectedPlan.value = plan;
   
@@ -645,6 +702,12 @@ const handleEdit = (plan: SharedPlan) => {
   const priceInYuan = priceInCents / 100;
   
   editForm.value = {
+    subscription_url: plan.subscription_url || '',
+    group_ids: (plan.group_ids && plan.group_ids.length > 0)
+      ? plan.group_ids.slice()
+      : (plan.group_id ? [plan.group_id] : []),
+    device_limit: typeof (plan as any).device_limit === 'number' ? (plan as any).device_limit : null,
+    tags: (plan.tags || []).slice(),
     name: plan.name,
     description: plan.description || '',
     base_price: priceInYuan, // 基础价格（月付）
@@ -655,7 +718,6 @@ const handleEdit = (plan: SharedPlan) => {
       yearly: plan.prices?.yearly ? plan.prices.yearly / 100 : 0,
       two_yearly: plan.prices?.two_yearly ? plan.prices.two_yearly / 100 : 0,
       three_yearly: plan.prices?.three_yearly ? plan.prices.three_yearly / 100 : 0,
-      onetime: plan.prices?.onetime ? plan.prices.onetime / 100 : 0,
     },
     max_slots: plan.max_slots,
   };
@@ -673,7 +735,6 @@ const calculatePricesFromBase = () => {
       yearly: Math.round(basePrice * 12 * 0.85), // 年付 15% 折扣
       two_yearly: Math.round(basePrice * 24 * 0.80), // 两年付 20% 折扣
       three_yearly: Math.round(basePrice * 36 * 0.75), // 三年付 25% 折扣
-      onetime: Math.round(basePrice * 12 * 0.80), // 一次性 20% 折扣
     };
   }
 };
@@ -709,8 +770,11 @@ const resetEditDialog = () => {
   editLoading.value = false;
   selectedPlan.value = null;
   editFormRef.value?.clearValidate();
-  // 保留 editForm 默认值，避免下次打开残留
   editForm.value = {
+    subscription_url: '',
+    group_ids: [],
+    device_limit: null,
+    tags: [],
     name: '',
     description: '',
     base_price: 0,
@@ -721,7 +785,6 @@ const resetEditDialog = () => {
       yearly: 0,
       two_yearly: 0,
       three_yearly: 0,
-      onetime: 0,
     },
     max_slots: 0,
   };
@@ -734,7 +797,6 @@ const handleCancelEdit = () => {
 
 // 清空所有价格
 const clearAllPrices = () => {
-  editForm.value.base_price = 0;
   editForm.value.prices = {
     monthly: 0,
     quarterly: 0,
@@ -742,7 +804,6 @@ const clearAllPrices = () => {
     yearly: 0,
     two_yearly: 0,
     three_yearly: 0,
-    onetime: 0,
   };
 };
 
@@ -754,35 +815,58 @@ const handleUpdatePlan = async () => {
 
   try {
     // 先验证表单（Element Plus validate 可能返回 void/boolean，这里统一成 boolean）
-    const valid = await editFormRef.value.validate().catch(() => false);
-    if (!valid) return;
+    const validResult = await editFormRef.value.validate().catch(() => false);
+    if (validResult === false) return;
 
     editLoading.value = true;
     
     // 将元转换为分存储
-    const updateData: any = {
-      name: editForm.value.name,
-      description: editForm.value.description,
-      max_slots: editForm.value.max_slots,
-      prices: {
-        monthly: Math.round(editForm.value.prices.monthly * 100),
-        quarterly: Math.round(editForm.value.prices.quarterly * 100),
-        half_yearly: Math.round(editForm.value.prices.half_yearly * 100),
-        yearly: Math.round(editForm.value.prices.yearly * 100),
-        two_yearly: Math.round(editForm.value.prices.two_yearly * 100),
-        three_yearly: Math.round(editForm.value.prices.three_yearly * 100),
-        onetime: Math.round(editForm.value.prices.onetime * 100),
-      },
+    const pricesInCents: Record<string, number> = {
+      monthly: Math.round(editForm.value.prices.monthly * 100),
+      quarterly: Math.round(editForm.value.prices.quarterly * 100),
+      half_yearly: Math.round(editForm.value.prices.half_yearly * 100),
+      yearly: Math.round(editForm.value.prices.yearly * 100),
+      two_yearly: Math.round(editForm.value.prices.two_yearly * 100),
+      three_yearly: Math.round(editForm.value.prices.three_yearly * 100),
     };
-    
-    console.log('Updating plan with data:', updateData);
+
+    // 允许单项价格为 0（视为未设置）：提交时剔除 0 值
+    const filteredPrices = Object.fromEntries(
+      Object.entries(pricesInCents).filter(([, value]) => value > 0)
+    );
+
+    const updateData: any = {
+      // Some deployments (e.g. sqlite dev db) may not have group_ids column.
+      // Send only group_id for compatibility.
+      group_id: (editForm.value.group_ids || []).length > 0 ? editForm.value.group_ids[0] : null,
+      device_limit: editForm.value.device_limit,
+      tags: (Array.isArray(editForm.value.tags) ? editForm.value.tags : [])
+        .map((tag: any) => sanitizeText(tag))
+        .filter((tag: string) => tag.trim().length > 0),
+      name: sanitizeText(editForm.value.name),
+      description: sanitizeText(editForm.value.description),
+      max_slots: editForm.value.max_slots,
+      prices: filteredPrices,
+    };
+
+    // IMPORTANT: backend stores subscription_url encrypted.
+    // If we always send subscription_url, backend compares plaintext with encrypted value,
+    // incorrectly thinks it changed, triggers resync, and may throw -> 500.
+    // Only send subscription_url when user actually changed it.
+    const originalUrl = selectedPlan.value.subscription_url || '';
+    const currentUrl = editForm.value.subscription_url || '';
+    if (currentUrl.trim() && currentUrl.trim() !== originalUrl.trim()) {
+      updateData.subscription_url = currentUrl.trim();
+    }
     
     await sharedPlanStore.updatePlan(selectedPlan.value!.id, updateData);
-    console.log('Update successful');
     
     ElMessage.success(t('sharedPlans.updateSuccess'));
 
     saveSuccess = true;
+
+    // Close dialog immediately on success
+    editDialogVisible.value = false;
     
     // 刷新列表（不要阻塞保存按钮的 loading 状态）
     sharedPlanStore.fetchPlans().catch(() => undefined);
@@ -874,9 +958,24 @@ const fetchPlans = async () => {
   }
 };
 
+const fetchServerGroups = async () => {
+  loadingGroups.value = true;
+  try {
+    const response = await serverApi.getGroups();
+    if (response.data) {
+      serverGroups.value = response.data;
+    }
+  } catch (_error) {
+    // Ignore; editing group_id can still proceed as optional
+  } finally {
+    loadingGroups.value = false;
+  }
+};
+
 // Lifecycle
 onMounted(() => {
   fetchPlans();
+  fetchServerGroups();
 });
 </script>
 
@@ -971,6 +1070,34 @@ onMounted(() => {
   border-top: 1px solid #ebeef5;
 }
 
+.plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.plan-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-meta-icon {
+  font-size: 14px;
+  color: #909399;
+}
+
+.plan-meta-label {
+  color: #909399;
+}
+
+.plan-meta-text {
+  color: #606266;
+}
+
 .plan-description {
   font-size: 14px;
   color: #606266;
@@ -1062,6 +1189,51 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.pricing-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.pricing-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pricing-edit-tile {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.pricing-edit-period {
+  font-size: 13px;
+  color: #606266;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.pricing-grid-item {
+  padding: 10px 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  border: 1px solid #ebeef5;
+}
+
+.pricing-grid-period {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 6px;
+}
+
+.pricing-grid-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #303133;
 }
 
 .pricing-badge {

@@ -7,20 +7,15 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { referralApi } from '@xboard/shared';
 import type {
-  ReferralStats,
   CommissionLog,
-  ReferredUser,
   InviteCode,
 } from '@xboard/shared';
 
 export const useReferralStore = defineStore('referral', () => {
   // State
-  const stats = ref<ReferralStats | null>(null);
-  const commissionLogs = ref<CommissionLog[]>([]);
-  const referredUsers = ref<ReferredUser[]>([]);
+  const stats = ref<any | null>(null);
   const inviteCodes = ref<InviteCode[]>([]);
-  const referralLink = ref<string>('');
-  const referralCode = ref<string>('');
+  const commissionLogs = ref<CommissionLog[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -34,16 +29,17 @@ export const useReferralStore = defineStore('referral', () => {
   const referredUsersPageSize = ref(10);
 
   // Getters
-  const hasCommissions = computed(() => (stats.value?.commission_balance ?? 0) > 0);
-  const hasReferrals = computed(() => (stats.value?.invite_count ?? 0) > 0);
+  const hasCommissions = computed(() => (stats.value?.confirmed_commission ?? 0) > 0);
+  const hasReferrals = computed(() => (stats.value?.registered_user_count ?? 0) > 0);
 
   // Actions
-  async function fetchStats() {
+  async function fetchOverview() {
     try {
       loading.value = true;
       error.value = null;
-      const response = await referralApi.getStats();
-      stats.value = response.data;
+      const response = await referralApi.getInviteOverview();
+      stats.value = response.data?.stat ?? null;
+      inviteCodes.value = response.data?.codes ?? [];
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch referral statistics';
       throw err;
@@ -71,48 +67,17 @@ export const useReferralStore = defineStore('referral', () => {
     }
   }
 
-  async function fetchReferredUsers(page = 1) {
+  async function fetchInvitedUsers(page: number = 1) {
     try {
       loading.value = true;
       error.value = null;
       referredUsersPage.value = page;
-      const response = await referralApi.getReferredUsers({
+      await referralApi.getInvitedUsers({
         page,
         page_size: referredUsersPageSize.value,
       });
-      referredUsers.value = response.data.data;
-      referredUsersTotal.value = response.data.total;
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch referred users';
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function fetchInviteCodes() {
-    try {
-      loading.value = true;
-      error.value = null;
-      const response = await referralApi.getInviteCodes();
-      inviteCodes.value = response.data;
-    } catch (err: any) {
-      error.value = err.message || 'Failed to fetch invite codes';
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function fetchReferralLink() {
-    try {
-      loading.value = true;
-      error.value = null;
-      const response = await referralApi.getReferralLink();
-      referralLink.value = response.data.link;
-      referralCode.value = response.data.code;
-    } catch (err: any) {
-      error.value = err.message || 'Failed to fetch referral link';
       throw err;
     } finally {
       loading.value = false;
@@ -124,7 +89,9 @@ export const useReferralStore = defineStore('referral', () => {
       loading.value = true;
       error.value = null;
       const response = await referralApi.generateInviteCode();
-      inviteCodes.value.unshift(response.data);
+      if (response.data) {
+        inviteCodes.value = [response.data, ...inviteCodes.value];
+      }
       return response.data;
     } catch (err: any) {
       error.value = err.message || 'Failed to generate invite code';
@@ -141,11 +108,8 @@ export const useReferralStore = defineStore('referral', () => {
   return {
     // State
     stats,
-    commissionLogs,
-    referredUsers,
     inviteCodes,
-    referralLink,
-    referralCode,
+    commissionLogs,
     loading,
     error,
     commissionPage,
@@ -160,11 +124,9 @@ export const useReferralStore = defineStore('referral', () => {
     hasReferrals,
 
     // Actions
-    fetchStats,
+    fetchOverview,
     fetchCommissionLogs,
-    fetchReferredUsers,
-    fetchInviteCodes,
-    fetchReferralLink,
+    fetchInvitedUsers,
     generateInviteCode,
     clearError,
   };

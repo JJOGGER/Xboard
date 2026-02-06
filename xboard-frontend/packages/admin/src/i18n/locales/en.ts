@@ -81,6 +81,7 @@ export default {
     devices: 'Devices',
     serverGroup: 'Server Group',
     serverGroups: 'Server Groups',
+    deviceLimit: 'Device Limit',
     noPlans: 'No plans found',
     createFirst: 'Create First Plan',
     planHidden: 'Plan hidden successfully',
@@ -240,7 +241,10 @@ export default {
     title: 'Order Management',
     orderList: 'Order List',
     orderDetail: 'Order Detail',
-    noOrders: 'No orders found',
+    noOrders: 'No orders',
+    allOrders: 'All Orders',
+    traditionalOrders: 'Traditional Orders',
+    sharedOrders: 'Shared Subscription Orders',
     
     // Filters
     filterByStatus: 'Filter by Status',
@@ -953,7 +957,6 @@ export default {
     totalTrafficLabel: 'Total Traffic',
     usedTrafficLabel: 'Used Traffic',
     remainingTraffic: 'Remaining',
-    trafficShared: 'Shared by all users',
     
     lastSyncAt: 'Last Sync',
     syncStatusLabel: 'Status',

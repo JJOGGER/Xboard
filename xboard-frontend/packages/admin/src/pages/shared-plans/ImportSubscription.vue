@@ -231,9 +231,10 @@
             <h3 class="section-title">{{ t('sharedPlans.serverAccess') }}</h3>
             <p class="section-description">{{ t('sharedPlans.serverAccessDesc') }}</p>
             
-            <el-form-item :label="t('sharedPlans.serverGroup')" prop="group_id">
-              <el-select 
-                v-model="form.group_id" 
+            <el-form-item :label="t('sharedPlans.serverGroups')" prop="group_ids">
+              <el-select
+                v-model="form.group_ids"
+                multiple
                 :placeholder="t('sharedPlans.selectServerGroup')"
                 style="width: 100%"
                 :loading="loadingGroups"
@@ -247,6 +248,18 @@
                 />
               </el-select>
               <div class="form-hint">{{ t('sharedPlans.serverGroupHint') }}</div>
+            </el-form-item>
+
+            <el-form-item :label="t('sharedPlans.deviceLimit')" prop="device_limit">
+              <el-input-number
+                v-model="form.device_limit"
+                :min="0"
+                :step="1"
+                :precision="0"
+                controls-position="right"
+                style="width: 100%"
+              />
+              <div class="form-hint">{{ t('sharedPlans.deviceLimit') }}</div>
             </el-form-item>
           </div>
 
@@ -360,19 +373,6 @@
                 />
                 <div class="form-hint">1095 {{ t('sharedPlans.days') }}</div>
               </el-form-item>
-              
-              <el-form-item :label="t('sharedPlans.onetime')" prop="prices.onetime">
-                <el-input-number
-                  v-model="form.prices.onetime"
-                  :min="0"
-                  :step="100"
-                  :precision="0"
-                  controls-position="right"
-                  style="width: 100%"
-                  :placeholder="t('sharedPlans.priceInCents')"
-                />
-                <div class="form-hint">{{ t('sharedPlans.permanent') }}</div>
-              </el-form-item>
             </div>
             
             <div class="form-hint pricing-hint">{{ t('sharedPlans.pricingHint') }}</div>
@@ -440,25 +440,16 @@ const suggestedTags = ref<string[]>([
 ]);
 
 // Form data with new fields
-interface ExtendedImportRequest extends Omit<ImportSubscriptionRequest, 'price' | 'duration_days'> {
-  group_id?: number;
+interface ExtendedImportRequest extends ImportSubscriptionRequest {
   tags?: string[];
-  prices: {
-    monthly?: number;
-    quarterly?: number;
-    half_yearly?: number;
-    yearly?: number;
-    two_yearly?: number;
-    three_yearly?: number;
-    onetime?: number;
-  };
 }
 
 const form = ref<ExtendedImportRequest>({
   subscription_url: '',
   name: '',
   description: '',
-  group_id: undefined,
+  group_ids: [],
+  device_limit: null,
   tags: [],
   prices: {
     monthly: 0,
@@ -467,7 +458,6 @@ const form = ref<ExtendedImportRequest>({
     yearly: 0,
     two_yearly: 0,
     three_yearly: 0,
-    onetime: 0,
   },
   max_slots: 10,
 });
@@ -505,8 +495,9 @@ const rules: FormRules = {
     { required: true, message: t('sharedPlans.nameRequired'), trigger: 'blur' },
     { min: 2, max: 100, message: t('sharedPlans.nameLength'), trigger: 'blur' },
   ],
-  group_id: [
+  group_ids: [
     { required: true, message: t('sharedPlans.groupRequired'), trigger: 'change' },
+    { type: 'array', min: 1, message: t('sharedPlans.groupRequired'), trigger: 'change' },
   ],
   tags: [
     { validator: validateTags, trigger: 'change' },
@@ -527,7 +518,7 @@ const previewData = computed(() => sharedPlanStore.previewData);
 // Check if form is valid for submission
 const isFormValid = computed(() => {
   const hasName = form.value.name && form.value.name.length >= 2 && form.value.name.length <= 100;
-  const hasGroup = form.value.group_id !== undefined;
+  const hasGroup = Array.isArray(form.value.group_ids) && form.value.group_ids.length > 0;
   const hasPrice = Object.values(form.value.prices).some(price => price && price > 0);
   const hasValidTags = !form.value.tags || (form.value.tags.length <= 10 && form.value.tags.every(tag => tag.length <= 20));
   const hasValidSlots = form.value.max_slots >= 1 && form.value.max_slots <= 1000;
@@ -684,7 +675,9 @@ const handleSubmit = async () => {
           subscription_url: form.value.subscription_url,
           name: form.value.name,
           description: form.value.description,
-          group_id: form.value.group_id,
+          group_ids: form.value.group_ids,
+          group_id: Array.isArray(form.value.group_ids) && form.value.group_ids.length > 0 ? form.value.group_ids[0] : undefined,
+          device_limit: form.value.device_limit,
           tags: form.value.tags?.filter(tag => tag.trim().length > 0) || [],
           prices: activePrices,
           max_slots: form.value.max_slots,

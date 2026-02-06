@@ -6,8 +6,11 @@ const routes: RouteRecordRaw[] = [
   // Public routes
   {
     path: '/',
-    name: 'Home',
-    component: () => import('../pages/Home.vue'),
+    name: 'Root',
+    redirect: () => {
+      const authStore = useAuthStore();
+      return authStore.isAuthenticated ? '/dashboard' : '/login';
+    },
     meta: { requiresAuth: false }
   },
   {

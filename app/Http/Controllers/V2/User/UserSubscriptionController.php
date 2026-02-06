@@ -124,7 +124,7 @@ class UserSubscriptionController extends Controller
 
             // Validate request
             $validated = $request->validate([
-                'period' => 'nullable|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly,onetime',
+                'period' => 'nullable|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly',
             ]);
 
             // 查找套餐
@@ -180,6 +180,16 @@ class UserSubscriptionController extends Controller
             if ($existingSlot) {
                 return $this->fail([400, '您已经购买过此套餐']);
             }
+
+            // 限制用户只能有一个活跃的共享订阅
+            // 将用户现有的所有活跃共享订阅设为过期
+            PlanSlot::where('user_id', $user->id)
+                ->where('status', PlanSlot::STATUS_ACTIVE)
+                ->whereNotNull('shared_plan_id')
+                ->update([
+                    'status' => PlanSlot::STATUS_EXPIRED,
+                    'expired_at' => now(),
+                ]);
 
             // 创建订单并分配slot
             DB::beginTransaction();

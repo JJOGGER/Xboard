@@ -91,45 +91,27 @@ export const useSharedPlanStore = defineStore('sharedPlan', () => {
   };
 
   const previewSubscription = async (subscriptionUrl: string) => {
-    console.log('[Store] previewSubscription called');
-    console.log('[Store] URL:', subscriptionUrl);
-    
     loading.value = true;
     error.value = null;
     previewData.value = null; // Clear previous data
 
     try {
-      console.log('[Store] Calling sharedPlanService.previewSubscription...');
       const response = await sharedPlanService.previewSubscription(subscriptionUrl);
-      console.log('[Store] Full API response:', JSON.stringify(response, null, 2));
-      console.log('[Store] response.data:', response.data);
-      console.log('[Store] response.data type:', typeof response.data);
       
       // API client already unwraps response.data, so response is the backend's JSON directly
       // Backend returns: { status: "success", message: "...", data: {...} }
       if (response.data) {
         previewData.value = response.data;
-        console.log('[Store] previewData set successfully');
-        console.log('[Store] previewData.value:', JSON.stringify(previewData.value, null, 2));
-        console.log('[Store] Nodes count:', previewData.value.nodes?.length);
-        console.log('[Store] Format:', previewData.value.format);
       } else {
-        console.warn('[Store] No data in response');
-        console.warn('[Store] response object keys:', Object.keys(response));
         error.value = '服务器返回的数据格式不正确';
       }
       
       return response.data;
     } catch (err: any) {
-      console.error('[Store] Error:', err);
-      console.error('[Store] Error message:', err.message);
-      
       error.value = err.message || 'Failed to preview subscription';
       throw err;
     } finally {
       loading.value = false;
-      console.log('[Store] Preview completed');
-      console.log('[Store] Final state - loading:', loading.value, 'error:', error.value, 'hasData:', !!previewData.value);
     }
   };
 
@@ -138,27 +120,16 @@ export const useSharedPlanStore = defineStore('sharedPlan', () => {
     error.value = null;
 
     try {
-      console.log('[Store] importSubscription called with data:', data);
       const response = await sharedPlanService.importSubscription(data);
-      console.log('[Store] importSubscription response:', response);
-      console.log('[Store] response.data:', response.data);
-      console.log('[Store] response.status:', response.status);
       
       if (response.data) {
         // Add new plan to the list
         plans.value.unshift(response.data);
-        console.log('[Store] Plan added to list successfully');
         return response.data;
       } else {
-        console.error('[Store] No data in response, but status is:', response.status);
-        // If status is success but no data, something is wrong
-        if (response.status === 'success') {
-          console.warn('[Store] Response status is success but data is missing');
-        }
         throw new Error('No data returned from server');
       }
     } catch (err: any) {
-      console.error('[Store] importSubscription error:', err);
       error.value = err.message || 'Failed to import subscription';
       throw err;
     } finally {

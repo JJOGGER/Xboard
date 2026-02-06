@@ -116,15 +116,6 @@
           </div>
         </div>
 
-        <!-- Traffic Notice -->
-        <div v-if="sub.plan.total_traffic" class="traffic-notice">
-          <svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <span>{{ t('sharedPlans.trafficShared') }}</span>
-        </div>
       </div>
     </div>
 

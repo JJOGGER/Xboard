@@ -159,12 +159,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../pages/shared-plans/ImportSubscription.vue'),
         meta: { title: '导入订阅' }
       },
-      {
-        path: 'shared-plans/:id',
-        name: 'SharedPlanDetails',
-        component: () => import('../pages/shared-plans/SharedPlanDetails.vue'),
-        meta: { title: '共享订阅详情' }
-      }
+      
       // More routes will be added as features are implemented
     ]
   },
