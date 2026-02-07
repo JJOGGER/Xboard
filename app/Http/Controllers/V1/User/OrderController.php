@@ -35,11 +35,11 @@ class OrderController extends Controller
             ->when($request->input('order_kind') !== null, function ($query) use ($request) {
                 $orderKind = $request->input('order_kind');
                 if ($orderKind === 'traditional') {
-                    $query->where('order_kind', 'traditional');
+                    $query->where('plan_type', 'traditional');
                 } elseif ($orderKind === 'shared') {
                     $query->where(function ($sub) {
-                        $sub->whereNull('order_kind')
-                            ->orWhere('order_kind', '!=', 'traditional');
+                        $sub->where('plan_type', 'shared')
+                            ->orWhereNotNull('shared_plan_id');
                     });
                 }
             })
