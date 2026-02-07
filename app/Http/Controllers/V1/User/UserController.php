@@ -109,6 +109,12 @@ class UserController extends Controller
         if (!$user) {
             return $this->fail([400, __('The user does not exist')]);
         }
+        if ($user->plan_id) {
+            $plan = Plan::find($user->plan_id);
+            $user['plan_name'] = $plan?->name;
+        } else {
+            $user['plan_name'] = null;
+        }
         $user['avatar_url'] = 'https://cdn.v2ex.com/gravatar/' . md5($user->email) . '?s=64&d=identicon';
         return $this->success($user);
     }

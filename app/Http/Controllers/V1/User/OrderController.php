@@ -25,11 +25,23 @@ class OrderController extends Controller
     {
         $request->validate([
             'status' => 'nullable|integer|in:0,1,2,3',
+            'order_kind' => 'nullable|string|in:traditional,shared',
         ]);
         $orders = Order::with(['plan', 'sharedPlan'])
             ->where('user_id', $request->user()->id)
             ->when($request->input('status') !== null, function ($query) use ($request) {
                 $query->where('status', $request->input('status'));
+            })
+            ->when($request->input('order_kind') !== null, function ($query) use ($request) {
+                $orderKind = $request->input('order_kind');
+                if ($orderKind === 'traditional') {
+                    $query->where('order_kind', 'traditional');
+                } elseif ($orderKind === 'shared') {
+                    $query->where(function ($sub) {
+                        $sub->whereNull('order_kind')
+                            ->orWhere('order_kind', '!=', 'traditional');
+                    });
+                }
             })
             ->orderBy('created_at', 'DESC')
             ->get();
