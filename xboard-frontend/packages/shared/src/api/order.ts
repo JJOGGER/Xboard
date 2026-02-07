@@ -100,14 +100,14 @@ export const orderApi = {
   /**
    * Fetch user orders
    */
-  async fetchOrders(params?: { page?: number; page_size?: number }): Promise<ApiResponse<OrderListResponse>> {
+  async fetchOrders(params?: { page?: number; page_size?: number; order_kind?: 'shared' | 'traditional' }): Promise<ApiResponse<OrderListResponse>> {
     return apiClient.get<OrderListResponse>('/v1/user/order/fetch', { params });
   },
   
   /**
    * Get user orders (alias for fetchOrders for compatibility)
    */
-  async getUserOrders(params?: { page?: number; page_size?: number }): Promise<ApiResponse<OrderListResponse>> {
+  async getUserOrders(params?: { page?: number; page_size?: number; order_kind?: 'shared' | 'traditional' }): Promise<ApiResponse<OrderListResponse>> {
     return apiClient.get<OrderListResponse>('/v1/user/order/fetch', { params });
   },
 

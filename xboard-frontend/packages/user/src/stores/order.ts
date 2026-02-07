@@ -30,6 +30,7 @@ export const useOrderStore = defineStore('order', () => {
   const checkoutData = ref<CheckoutResponse | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const orderKind = ref<'all' | 'traditional' | 'shared'>('all');
 
   // Getters
   const pendingOrders = computed(() => 
@@ -49,11 +50,15 @@ export const useOrderStore = defineStore('order', () => {
   /**
    * Fetch user's orders
    */
-  async function fetchOrders(params?: { page?: number; page_size?: number }): Promise<void> {
+  async function fetchOrders(params?: { page?: number; page_size?: number; order_kind?: 'shared' | 'traditional' }): Promise<void> {
     loading.value = true;
     error.value = null;
     try {
-      const response = await orderApi.fetchOrders(params);
+      const effectiveOrderKind = params?.order_kind ?? (orderKind.value !== 'all' ? orderKind.value : undefined);
+      const response = await orderApi.fetchOrders({
+        ...params,
+        order_kind: effectiveOrderKind as any,
+      });
       const payload: any = (response as any).data;
       const maybeList = payload?.data?.data ?? payload?.data ?? payload;
       orders.value = Array.isArray(maybeList) ? maybeList : [];
@@ -64,6 +69,10 @@ export const useOrderStore = defineStore('order', () => {
     } finally {
       loading.value = false;
     }
+  }
+
+  function setOrderKind(kind: 'all' | 'traditional' | 'shared'): void {
+    orderKind.value = kind;
   }
 
   /**
@@ -310,6 +319,7 @@ export const useOrderStore = defineStore('order', () => {
     checkoutData,
     loading,
     error,
+    orderKind,
     
     // Getters
     pendingOrders,
@@ -318,6 +328,7 @@ export const useOrderStore = defineStore('order', () => {
     
     // Actions
     fetchOrders,
+    setOrderKind,
     fetchOrderById,
     createOrder,
     cancelOrder,

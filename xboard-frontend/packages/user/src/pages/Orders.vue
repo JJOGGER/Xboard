@@ -159,37 +159,10 @@ function getOrderPlanName(order: any): string {
 }
 
 function getOrderOriginalPrice(order: any): number {
-  // MaClash: list displays plan original price for period, not payable.
-  const period: string = String(order?.period || '');
-
-  // shared: use pricing_tiers with legacy->shared mapping
-  const sharedPlan: any = order?.plan;
-  if (sharedPlan?.pricing_tiers) {
-    const legacyToShared: Record<string, string> = {
-      month_price: 'monthly',
-      quarter_price: 'quarterly',
-      half_year_price: 'half_yearly',
-      year_price: 'yearly',
-      two_year_price: 'two_yearly',
-      three_year_price: 'three_yearly',
-      onetime_price: 'onetime',
-    };
-    const sharedPeriod = legacyToShared[period] || period;
-    const price = sharedPlan.pricing_tiers?.[sharedPeriod]?.price;
-    if (typeof price === 'number') return price;
-  }
-
-  // traditional: plan has legacy price keys like month_price etc
-  const plan: any = order?.plan;
-  const p = plan?.[period];
-  if (typeof p === 'number') return p;
-
-  // fallback to payable + deductions if no pricing is available
+  // User-side: this page is shared-orders only, show payable amount.
+  // Backend amounts are in cents.
   const total = Number(order?.total_amount || 0);
-  const discount = Number(order?.discount_amount || 0);
-  const balance = Number(order?.balance_amount || 0);
-  const surplus = Number(order?.surplus_amount || 0);
-  return total + discount + balance + surplus;
+  return Number.isFinite(total) ? total : 0;
 }
 
 function getPeriodKey(period: string): string {
@@ -227,7 +200,9 @@ function goToOrderDetail(order: Order): void {
 // Lifecycle
 onMounted(async () => {
   try {
-    await orderStore.fetchOrders();
+    await orderStore.fetchOrders({
+      order_kind: 'shared',
+    } as any);
   } catch (err) {
     console.error('Failed to fetch orders:', err);
   }
