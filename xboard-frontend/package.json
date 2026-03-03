@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "XBoard Vue 3 Frontend - Admin & User Applications",
+  "pnpm": {
+    "overrides": {
+      "estree-walker": "2.0.2"
+    }
+  },
   "scripts": {
     "dev:admin": "pnpm --filter @xboard/admin dev",
     "dev:user": "pnpm --filter @xboard/user dev",
