@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1\User;
 use App\Http\Controllers\Controller;
 use App\Models\SharedPlan;
 use App\Models\PlanSlot;
+use App\Services\SharedSubscribeLinkService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -111,7 +112,7 @@ class SharedPlanController extends Controller
     {
         try {
             $user = $request->user();
-
+            $linkService = app(SharedSubscribeLinkService::class);
             // 获取用户的所有slot
             $slots = PlanSlot::where('user_id', $user->id)
                 ->with(['sharedPlan.group'])
@@ -129,7 +130,7 @@ class SharedPlanController extends Controller
             }
 
             $plan = $activeSlot->sharedPlan;
-
+            $subscriptionContentUrl = $activeSlot->getSubscriptionUrl();
             $transferEnableGb = null;
             if ($plan && $plan->total_traffic !== null) {
                 $transferEnableGb = (int) floor(((int) $plan->total_traffic) / 1024 / 1024 / 1024);
@@ -162,7 +163,13 @@ class SharedPlanController extends Controller
                         'name' => $plan->group->name,
                     ] : null,
                 ],
-                'subscription_url' => $plan->subscription_url, // 返回原始第三方订阅地址
+                'subscription_url' => $linkService->buildDeepLink([
+    'subscribe_url' => $subscriptionContentUrl,
+    'user_id' => $user->id,
+    'email' => (string) ($user->email ?? ''),
+    'expire_at' => $activeSlot->expire_at ? $activeSlot->expire_at->getTimestamp() : null,
+]),
+'subscription_content_url' => $subscriptionContentUrl,
             ]];
 
             return $this->success([
