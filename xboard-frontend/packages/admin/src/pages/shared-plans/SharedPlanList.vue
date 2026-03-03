@@ -213,6 +213,33 @@
             </div>
           </div>
 
+          <!-- Subscribed Users -->
+          <div v-if="plan.users && plan.users.length > 0" class="users-section">
+            <div class="users-header">
+              <span class="users-label">{{ t('sharedPlans.subscribedUsers') }}</span>
+              <span class="users-count">{{ plan.users.length }}</span>
+            </div>
+            <div class="users-list">
+              <div v-for="slot in plan.users" :key="slot.slot_id" class="user-row">
+                <div class="user-meta">
+                  <div class="user-email">{{ slot.user_email }}</div>
+                  <div class="user-expire">
+                    {{ t('sharedPlans.expireAt') }}: {{ formatDate(slot.expire_at) }}
+                  </div>
+                </div>
+                <div class="user-actions">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="handleCopyUserLink(slot.shared_subscribe_link)"
+                  >
+                    {{ t('sharedPlans.copyUserLink') }}
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Traffic Info -->
           <div v-if="plan.total_traffic" class="traffic-section">
             <div class="traffic-item">
@@ -736,6 +763,15 @@ const calculatePricesFromBase = () => {
       two_yearly: Math.round(basePrice * 24 * 0.80), // 两年付 20% 折扣
       three_yearly: Math.round(basePrice * 36 * 0.75), // 三年付 25% 折扣
     };
+  }
+};
+
+const handleCopyUserLink = async (link: string) => {
+  try {
+    await navigator.clipboard.writeText(link);
+    ElMessage.success(t('sharedPlans.copySuccess'));
+  } catch (err) {
+    ElMessage.error((err as any)?.message || t('common.copyFailed'));
   }
 };
 

@@ -13,6 +13,19 @@ export interface ServerGroup {
   server_count: number;
 }
 
+export interface AdminSharedPlanUserSlot {
+  slot_id: number;
+  user_id: number;
+  user_email: string;
+  subscription_token: string;
+  status: 'active' | 'expired' | 'cancelled';
+  allocated_at: string | null;
+  expire_at: string | null;
+  released_at: string | null;
+  shared_subscribe_link: string;
+  subscription_content_url: string;
+}
+
 export interface SharedPlan {
   id: number;
   name: string;
@@ -70,6 +83,9 @@ export interface SharedPlan {
   // RELATIONSHIPS
   group?: ServerGroup;
   groups?: Array<{ id: number; name: string }>;
+
+  // Admin list/details may include allocated user slots
+  users?: AdminSharedPlanUserSlot[];
 }
 
 export interface PlanSlot {
@@ -88,6 +104,10 @@ export interface PlanSlot {
     id: number;
     email: string;
   };
+
+  // Optional fields when slot is represented in admin responses
+  shared_subscribe_link?: string;
+  subscription_content_url?: string;
 }
 
 export interface SubscriptionSyncLog {
