@@ -327,7 +327,7 @@ class SharedPlanController extends Controller
             }
 
             // 格式化返回数据（Requirements 2.6, 3.4, 4.1, 7.3）
-            $data = $plans->map(function ($plan) use ($slotsByPlanId, $linkService) {
+            $data = $plans->getCollection()->map(function ($plan) use ($slotsByPlanId, $linkService) {
                 $groups = !empty($plan->group_ids)
                     ? \App\Models\ServerGroup::query()->whereIn('id', $plan->group_ids)->get(['id', 'name'])
                     : collect();
@@ -362,7 +362,7 @@ class SharedPlanController extends Controller
                         return [
                             'slot_id' => $slot->id,
                             'user_id' => $slot->user_id,
-                            'user_email' => $slot->user->email ?? 'N/A',
+                            'user_email' => $slot->user?->email ?? 'N/A',
                             'subscription_token' => substr($slot->subscription_token, 0, 8) . '...' . substr($slot->subscription_token, -8),
                             'status' => $slot->status,
                             'allocated_at' => $slot->allocated_at?->toIso8601String(),
@@ -371,7 +371,7 @@ class SharedPlanController extends Controller
                             'shared_subscribe_link' => $linkService->buildDeepLink([
                                 'subscribe_url' => $subscriptionContentUrl,
                                 'user_id' => $slot->user_id,
-                                'email' => (string) ($slot->user->email ?? ''),
+                                'email' => (string) ($slot->user?->email ?? ''),
                                 'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
                             ]),
                             'subscription_content_url' => $subscriptionContentUrl,
@@ -443,16 +443,16 @@ class SharedPlanController extends Controller
                 return [
                     'slot_id' => $slot->id,
                     'user_id' => $slot->user_id,
-                    'user_email' => $slot->user->email ?? 'N/A',
+                    'user_email' => $slot->user?->email ?? 'N/A',
                     'subscription_token' => substr($slot->subscription_token, 0, 8) . '...' . substr($slot->subscription_token, -8),
                     'status' => $slot->status,
-                    'allocated_at' => $slot->allocated_at->toIso8601String(),
+                    'allocated_at' => $slot->allocated_at?->toIso8601String(),
                     'expire_at' => $slot->expire_at?->toIso8601String(),
                     'released_at' => $slot->released_at?->toIso8601String(),
                     'shared_subscribe_link' => $linkService->buildDeepLink([
                         'subscribe_url' => $subscriptionContentUrl,
                         'user_id' => $slot->user_id,
-                        'email' => (string) ($slot->user->email ?? ''),
+                        'email' => (string) ($slot->user?->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
                     ]),
                     'subscription_content_url' => $subscriptionContentUrl,
