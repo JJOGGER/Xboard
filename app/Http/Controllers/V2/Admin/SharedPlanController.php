@@ -11,6 +11,7 @@ use App\Services\SubscriptionImportService;
 use App\Services\SubscriptionParserService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -358,7 +359,22 @@ class SharedPlanController extends Controller
                     'created_at' => $plan->created_at->toIso8601String(),
                     'updated_at' => $plan->updated_at->toIso8601String(),
                     'users' => ($slotsByPlanId->get($plan->id, collect()))->map(function ($slot) use ($linkService) {
-                        $subscriptionContentUrl = $slot->getSubscriptionUrl();
+                        $subscriptionContentUrl = null;
+                        $sharedSubscribeLink = null;
+                        $slotError = null;
+
+                        try {
+                            $subscriptionContentUrl = $slot->getSubscriptionUrl();
+                            $sharedSubscribeLink = $linkService->buildDeepLink([
+                                'subscribe_url' => $subscriptionContentUrl,
+                                'user_id' => $slot->user_id,
+                                'email' => (string) ($slot->user?->email ?? ''),
+                                'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
+                            ]);
+                        } catch (\Throwable $e) {
+                            $slotError = $e->getMessage();
+                        }
+
                         return [
                             'slot_id' => $slot->id,
                             'user_id' => $slot->user_id,
@@ -368,13 +384,9 @@ class SharedPlanController extends Controller
                             'allocated_at' => $slot->allocated_at?->toIso8601String(),
                             'expire_at' => $slot->expire_at?->toIso8601String(),
                             'released_at' => $slot->released_at?->toIso8601String(),
-                            'shared_subscribe_link' => $linkService->buildDeepLink([
-                                'subscribe_url' => $subscriptionContentUrl,
-                                'user_id' => $slot->user_id,
-                                'email' => (string) ($slot->user?->email ?? ''),
-                                'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
-                            ]),
+                            'shared_subscribe_link' => $sharedSubscribeLink,
                             'subscription_content_url' => $subscriptionContentUrl,
+                            'error' => $slotError,
                         ];
                     })->values(),
                     
@@ -407,11 +419,23 @@ class SharedPlanController extends Controller
                 'current_page' => $plans->currentPage(),
                 'last_page' => $plans->lastPage(),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $errorId = (string) Str::uuid();
             Log::error('Failed to fetch shared plans', [
+                'error_id' => $errorId,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'query' => $request->query(),
             ]);
-            return $this->fail([500, '获取套餐列表失败']);
+
+            return $this->fail([
+                500,
+                '获取套餐列表失败',
+                [
+                    'error_id' => $errorId,
+                    'error_message' => $e->getMessage(),
+                ]
+            ]);
         }
     }
 
@@ -439,7 +463,22 @@ class SharedPlanController extends Controller
                 ->get();
 
             $users = $slots->map(function ($slot) use ($linkService) {
-                $subscriptionContentUrl = $slot->getSubscriptionUrl();
+                $subscriptionContentUrl = null;
+                $sharedSubscribeLink = null;
+                $slotError = null;
+
+                try {
+                    $subscriptionContentUrl = $slot->getSubscriptionUrl();
+                    $sharedSubscribeLink = $linkService->buildDeepLink([
+                        'subscribe_url' => $subscriptionContentUrl,
+                        'user_id' => $slot->user_id,
+                        'email' => (string) ($slot->user?->email ?? ''),
+                        'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
+                    ]);
+                } catch (\Throwable $e) {
+                    $slotError = $e->getMessage();
+                }
+
                 return [
                     'slot_id' => $slot->id,
                     'user_id' => $slot->user_id,
@@ -449,13 +488,9 @@ class SharedPlanController extends Controller
                     'allocated_at' => $slot->allocated_at?->toIso8601String(),
                     'expire_at' => $slot->expire_at?->toIso8601String(),
                     'released_at' => $slot->released_at?->toIso8601String(),
-                    'shared_subscribe_link' => $linkService->buildDeepLink([
-                        'subscribe_url' => $subscriptionContentUrl,
-                        'user_id' => $slot->user_id,
-                        'email' => (string) ($slot->user?->email ?? ''),
-                        'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
-                    ]),
+                    'shared_subscribe_link' => $sharedSubscribeLink,
                     'subscription_content_url' => $subscriptionContentUrl,
+                    'error' => $slotError,
                 ];
             });
 
@@ -514,12 +549,23 @@ class SharedPlanController extends Controller
             }
 
             return $this->success($result);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $errorId = (string) Str::uuid();
             Log::error('Failed to fetch shared plan details', [
+                'error_id' => $errorId,
                 'plan_id' => $id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
-            return $this->fail([500, '获取套餐详情失败']);
+
+            return $this->fail([
+                500,
+                '获取套餐详情失败',
+                [
+                    'error_id' => $errorId,
+                    'error_message' => $e->getMessage(),
+                ]
+            ]);
         }
     }
 
