@@ -219,25 +219,32 @@
               <span class="users-label">{{ t('sharedPlans.subscribedUsers') }}</span>
               <span class="users-count">{{ plan.users.length }}</span>
             </div>
-            <div class="users-list">
-              <div v-for="slot in plan.users" :key="slot.slot_id" class="user-row">
-                <div class="user-meta">
-                  <div class="user-email">{{ slot.user_email }}</div>
-                  <div class="user-expire">
-                    {{ t('sharedPlans.expireAt') }}: {{ formatDate(slot.expire_at) }}
-                  </div>
-                </div>
-                <div class="user-actions">
+            <el-table :data="plan.users" size="small" stripe>
+              <el-table-column prop="user_email" :label="t('sharedPlans.user')" min-width="220" />
+              <el-table-column :label="t('sharedPlans.expireAt')" min-width="200">
+                <template #default="{ row }">
+                  {{ formatDate(row.expire_at) }}
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('common.status')" min-width="140">
+                <template #default="{ row }">
+                  <el-tag v-if="row.error" type="danger" size="small" :title="row.error">{{ t('common.error') }}</el-tag>
+                  <el-tag v-else type="success" size="small">{{ t('common.success') }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('common.actions')" width="160" align="right">
+                <template #default="{ row }">
                   <el-button
                     type="primary"
                     size="small"
-                    @click="handleCopyUserLink(slot.shared_subscribe_link)"
+                    :disabled="!row.shared_subscribe_link"
+                    @click="handleCopyUserLink(row.shared_subscribe_link)"
                   >
                     {{ t('sharedPlans.copyUserLink') }}
                   </el-button>
-                </div>
-              </div>
-            </div>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
 
           <!-- Traffic Info -->
@@ -766,7 +773,11 @@ const calculatePricesFromBase = () => {
   }
 };
 
-const handleCopyUserLink = async (link: string) => {
+const handleCopyUserLink = async (link: string | null | undefined) => {
+  if (!link) {
+    ElMessage.error(t('sharedPlans.linkNotReady'));
+    return;
+  }
   try {
     await navigator.clipboard.writeText(link);
     ElMessage.success(t('sharedPlans.copySuccess'));

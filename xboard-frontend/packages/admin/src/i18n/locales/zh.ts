@@ -1071,6 +1071,12 @@ export default {
     syncFailed: '同步失败',
     lastSync: '最后同步',
     never: '从未',
+
+    subscribedUsers: '已订阅用户',
+    subscribedUsers2: '已订阅用户',
+    copyUserLink: '复制共享链接',
+    copySuccess: '复制成功',
+    linkNotReady: '共享链接暂不可用',
     
     // Details page
     basicInfo: '基本信息',
@@ -1137,78 +1143,4 @@ export default {
     months: '月',
     
   },
-    lastSync: '最后同步',
-    never: '从未',
-    
-    // Actions
-    viewDetails: '查看详情',
-    edit: '编辑',
-    sync: '立即同步',
-    delete: '删除',
-    
-    // Filtering
-    filterByTag: '按标签筛选',
-    allTags: '全部标签',
-    noTag: '无标签',
-    
-    // Details
-    planDetails: '套餐详情',
-    basicInfo: '基本信息',
-    trafficInfo: '流量信息',
-    syncInfo: '同步信息',
-    slotInfo: '名额信息',
-    
-    subscriptionFormat: '格式',
-    nodesCountLabel: '节点数',
-    priceLabel: '价格',
-    durationLabel: '有效期',
-    days: '天',
-    
-    totalTrafficLabel: '总流量',
-    usedTrafficLabel: '已用流量',
-    remainingTraffic: '剩余',
-    
-    lastSyncAt: '最后同步',
-    syncStatusLabel: '状态',
-    syncError: '错误',
-    syncFailCount: '失败次数',
-    
-    maxSlotsLabel: '最大名额',
-    usedSlotsLabel: '已用名额',
-    availableSlots: '可用名额',
-    
-    // Slot list
-    slotList: '名额使用情况',
-    noSlots: '暂无名额分配',
-    user: '用户',
-    allocatedAt: '分配时间',
-    slotExpireAt: '过期时间',
-    slotStatus: '状态',
-    slotActive: '活跃',
-    slotExpired: '已过期',
-    slotCancelled: '已取消',
-    
-    // Sync logs
-    syncLogs: '同步日志',
-    noLogs: '暂无同步日志',
-    syncTime: '同步时间',
-    result: '结果',
-    success: '成功',
-    duration: '耗时',
-    errorMessage: '错误信息',
-    
-    // Edit
-    editPlan: '编辑套餐',
-    updateSuccess: '套餐更新成功',
-    updateFailed: '更新套餐失败',
-    
-    // Sync
-    syncSuccess: '订阅同步成功',
-    syncFailed: '同步订阅失败',
-    syncConfirm: '确定要立即同步此订阅吗？',
-    
-    // Delete
-    deleteConfirm: '确定要删除套餐 "{name}" 吗？此操作无法撤销。',
-    deleteSuccess: '套餐删除成功',
-    deleteFailed: '删除套餐失败',
-  };
+};

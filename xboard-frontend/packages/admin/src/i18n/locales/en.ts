@@ -929,6 +929,12 @@ export default {
     expired: 'Expired',
     lastSync: 'Last Sync',
     never: 'Never',
+
+    subscribedUsers: 'Subscribed Users',
+    subscribedUsers2: 'Subscribed Users',
+    copyUserLink: 'Copy Shared Link',
+    copySuccess: 'Copied',
+    linkNotReady: 'Shared link is not available yet',
     
     // Actions
     viewDetails: 'View Details',

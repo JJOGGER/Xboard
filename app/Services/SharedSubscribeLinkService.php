@@ -63,7 +63,7 @@ class SharedSubscribeLinkService
             $iv,
             $tag,
             self::VERSION,
-            self::TAG_LENGTH * 8
+            self::TAG_LENGTH
         );
 
         if ($ciphertext === false || $tag === '') {
