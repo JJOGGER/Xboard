@@ -441,10 +441,9 @@ class SharedPlanController extends Controller
             return $this->fail([
                 500,
                 '获取套餐列表失败',
-                [
-                    'error_id' => $errorId,
-                    'error_message' => $e->getMessage(),
-                ]
+            ], null, [
+                'error_id' => $errorId,
+                'error_message' => $e->getMessage(),
             ]);
         }
     }
