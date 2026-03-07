@@ -322,7 +322,7 @@ class SharedPlanController extends Controller
             $slotsByPlanId = collect();
             if ($planIds->isNotEmpty()) {
                 $slotsByPlanId = PlanSlot::whereIn('shared_plan_id', $planIds)
-                    ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url')
+                    ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url,device_limit')
                     ->orderBy('allocated_at', 'desc')
                     ->get()
                     ->groupBy('shared_plan_id');
@@ -466,7 +466,7 @@ class SharedPlanController extends Controller
 
             // 获取使用该套餐的用户列表
             $slots = PlanSlot::where('shared_plan_id', $id)
-                ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url')
+                ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url,device_limit')
                 ->orderBy('allocated_at', 'desc')
                 ->get();
 
@@ -1067,7 +1067,11 @@ class SharedPlanController extends Controller
         }
 
         $cacheKey = 'SHARED_SUBSCRIBE_ONLINE_SLOT_' . $slotId;
-        $devices = Cache::get($cacheKey, []);
+        try {
+            $devices = Cache::get($cacheKey, []);
+        } catch (\Throwable $e) {
+            return 0;
+        }
         if (!is_array($devices) || empty($devices)) {
             return 0;
         }
@@ -1082,6 +1086,7 @@ class SharedPlanController extends Controller
         try {
             Cache::put($cacheKey, $devices, now()->addSeconds(self::SHARED_SUBSCRIBE_HEARTBEAT_TTL_SECONDS));
         } catch (\Throwable $e) {
+            // ignore
         }
 
         return count($devices);
