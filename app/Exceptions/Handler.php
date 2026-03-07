@@ -6,6 +6,8 @@ use App\Helpers\ApiResponse;
 use App\Services\Plugin\InterceptResponseException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\View\ViewException;
 use Throwable;
 
@@ -66,6 +68,25 @@ class Handler extends ExceptionHandler
             $message = $exception->getMessage();
             $errors = $exception->errors();
             return $this->fail([$code, $message],null,$errors);
+        }
+
+        // For shared-plans admin API, expose error_id + error_message to help debugging without reading server logs.
+        // Do not rely on Accept headers (some browsers/navigation may not send JSON Accept).
+        if ($request->is('api/v2/*/shared-plans*')) {
+            $errorId = (string) Str::uuid();
+            Log::error('Unhandled exception for admin api', [
+                'error_id' => $errorId,
+                'message' => $exception->getMessage(),
+                'exception' => get_class($exception),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            return $this->fail([500, '服务器错误'], null, [
+                'error_id' => $errorId,
+                'error_message' => $exception->getMessage(),
+            ]);
         }
         return parent::render($request, $exception);
     }
