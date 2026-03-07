@@ -245,6 +245,8 @@ class UserSubscriptionController extends Controller
                     'subscription_url' => $slot->getSubscriptionUrl(),
                     'subscription_url_offline' => app(SharedSubscribeLinkService::class)->buildToken([
                         'subscribe_url' => $plan->subscription_url,
+                        'shared_plan_id' => (int) $slot->shared_plan_id,
+                        'slot_id' => (int) $slot->id,
                         'user_id' => $user->id,
                         'email' => (string) ($user->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
@@ -476,6 +478,8 @@ class UserSubscriptionController extends Controller
                     'subscription_content_url' => $subscriptionContentUrl,
                     'subscription_url_offline' => $linkService->buildToken([
                         'subscribe_url' => (string) ($slot->sharedPlan?->subscription_url ?? $subscriptionContentUrl),
+                        'shared_plan_id' => (int) $slot->shared_plan_id,
+                        'slot_id' => (int) $slot->id,
                         'user_id' => $user->id,
                         'email' => (string) ($user->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,

@@ -5,15 +5,14 @@ namespace App\Http\Controllers\V2\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SharedPlan;
 use App\Models\PlanSlot;
-use App\Models\SubscriptionSyncLog;
+use App\Models\ServerGroup;
 use App\Services\SharedSubscribeLinkService;
-use App\Services\SubscriptionImportService;
-use App\Services\SubscriptionParserService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
@@ -24,6 +23,8 @@ use Illuminate\Support\Facades\Validator;
  */
 class SharedPlanController extends Controller
 {
+    private const SHARED_SUBSCRIBE_HEARTBEAT_TTL_SECONDS = 90;
+
     private SubscriptionImportService $importService;
     private SubscriptionParserService $parserService;
 
@@ -362,12 +363,16 @@ class SharedPlanController extends Controller
                         $subscriptionContentUrl = null;
                         $sharedSubscribeLink = null;
                         $slotError = null;
+                        $onlineCount = $this->getSharedSubscribeOnlineDeviceCount((int) $slot->id);
+                        $deviceLimit = (int) ($slot->sharedPlan?->device_limit ?? 0);
 
                         try {
                             $subscriptionContentUrl = $slot->getSubscriptionUrl();
                             $thirdPartySubscribeUrl = (string) ($slot->sharedPlan?->subscription_url ?? '');
                             $sharedSubscribeLink = $linkService->buildToken([
                                 'subscribe_url' => $thirdPartySubscribeUrl !== '' ? $thirdPartySubscribeUrl : $subscriptionContentUrl,
+                                'shared_plan_id' => (int) $slot->shared_plan_id,
+                                'slot_id' => (int) $slot->id,
                                 'user_id' => $slot->user_id,
                                 'email' => (string) ($slot->user?->email ?? ''),
                                 'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
@@ -385,6 +390,8 @@ class SharedPlanController extends Controller
                             'allocated_at' => $slot->allocated_at?->toIso8601String(),
                             'expire_at' => $slot->expire_at?->toIso8601String(),
                             'released_at' => $slot->released_at?->toIso8601String(),
+                            'online_devices_count' => $onlineCount,
+                            'over_limit' => $deviceLimit > 0 ? ($onlineCount > $deviceLimit) : false,
                             'shared_subscribe_link' => $sharedSubscribeLink,
                             'subscription_content_url' => $subscriptionContentUrl,
                             'error' => $slotError,
@@ -467,12 +474,16 @@ class SharedPlanController extends Controller
                 $subscriptionContentUrl = null;
                 $sharedSubscribeLink = null;
                 $slotError = null;
+                $onlineCount = $this->getSharedSubscribeOnlineDeviceCount((int) $slot->id);
+                $deviceLimit = (int) ($slot->sharedPlan?->device_limit ?? 0);
 
                 try {
                     $subscriptionContentUrl = $slot->getSubscriptionUrl();
                     $thirdPartySubscribeUrl = (string) ($slot->sharedPlan?->subscription_url ?? '');
                     $sharedSubscribeLink = $linkService->buildToken([
                         'subscribe_url' => $thirdPartySubscribeUrl !== '' ? $thirdPartySubscribeUrl : $subscriptionContentUrl,
+                        'shared_plan_id' => (int) $slot->shared_plan_id,
+                        'slot_id' => (int) $slot->id,
                         'user_id' => $slot->user_id,
                         'email' => (string) ($slot->user?->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
@@ -490,6 +501,8 @@ class SharedPlanController extends Controller
                     'allocated_at' => $slot->allocated_at?->toIso8601String(),
                     'expire_at' => $slot->expire_at?->toIso8601String(),
                     'released_at' => $slot->released_at?->toIso8601String(),
+                    'online_devices_count' => $onlineCount,
+                    'over_limit' => $deviceLimit > 0 ? ($onlineCount > $deviceLimit) : false,
                     'shared_subscribe_link' => $sharedSubscribeLink,
                     'subscription_content_url' => $subscriptionContentUrl,
                     'error' => $slotError,
@@ -1045,5 +1058,32 @@ class SharedPlanController extends Controller
             
             return true;
         }));
+    }
+
+    private function getSharedSubscribeOnlineDeviceCount(int $slotId): int
+    {
+        if ($slotId <= 0) {
+            return 0;
+        }
+
+        $cacheKey = 'SHARED_SUBSCRIBE_ONLINE_SLOT_' . $slotId;
+        $devices = Cache::get($cacheKey, []);
+        if (!is_array($devices) || empty($devices)) {
+            return 0;
+        }
+
+        $now = time();
+        foreach ($devices as $deviceId => $lastSeen) {
+            if (!is_numeric($lastSeen) || ($now - (int) $lastSeen) > self::SHARED_SUBSCRIBE_HEARTBEAT_TTL_SECONDS) {
+                unset($devices[$deviceId]);
+            }
+        }
+
+        try {
+            Cache::put($cacheKey, $devices, now()->addSeconds(self::SHARED_SUBSCRIBE_HEARTBEAT_TTL_SECONDS));
+        } catch (\Throwable $e) {
+        }
+
+        return count($devices);
     }
 }

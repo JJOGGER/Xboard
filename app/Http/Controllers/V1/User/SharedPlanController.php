@@ -165,6 +165,8 @@ class SharedPlanController extends Controller
                 ],
                 'subscription_url' => $linkService->buildToken([
                     'subscribe_url' => $subscriptionContentUrl,
+                    'shared_plan_id' => (int) $activeSlot->shared_plan_id,
+                    'slot_id' => (int) $activeSlot->id,
                     'user_id' => $user->id,
                     'email' => (string) ($user->email ?? ''),
                     'expire_at' => $activeSlot->expire_at ? $activeSlot->expire_at->getTimestamp() : null,

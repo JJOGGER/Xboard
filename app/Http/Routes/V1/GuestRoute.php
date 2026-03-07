@@ -7,6 +7,7 @@ use App\Http\Controllers\V1\Guest\PlanController;
 use App\Http\Controllers\V1\Guest\SharedPlanController;
 use App\Http\Controllers\V1\Guest\ServerController;
 use App\Http\Controllers\V1\Guest\TelegramController;
+use App\Http\Controllers\V1\Guest\SharedSubscribeController;
 use Illuminate\Contracts\Routing\Registrar;
 
 class GuestRoute
@@ -20,6 +21,8 @@ class GuestRoute
             $router->get('/plan/fetch', [PlanController::class, 'fetch']);
             // Shared Plans
             $router->get('/shared-plans', [SharedPlanController::class, 'index']);
+            // Shared Subscribe Heartbeat
+            $router->post('/shared-subscribe/heartbeat', [SharedSubscribeController::class, 'heartbeat']);
             // Server
             $router->get('/server/fetch', [ServerController::class, 'fetch']);
             // Telegram
