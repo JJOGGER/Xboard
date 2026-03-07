@@ -323,8 +323,18 @@ class SharedPlanController extends Controller
             $planIds = $plans->getCollection()->pluck('id')->values();
             $slotsByPlanId = collect();
             if ($planIds->isNotEmpty()) {
+                $sharedPlanSelect = ['id', 'subscription_url'];
+                if (Schema::hasColumn('v2_shared_plans', 'device_limit')) {
+                    $sharedPlanSelect[] = 'device_limit';
+                }
+
                 $slotsByPlanId = PlanSlot::whereIn('shared_plan_id', $planIds)
-                    ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url,device_limit')
+                    ->with([
+                        'user:id,email,created_at',
+                        'sharedPlan' => function ($query) use ($sharedPlanSelect) {
+                            $query->select($sharedPlanSelect);
+                        }
+                    ])
                     ->orderBy('allocated_at', 'desc')
                     ->get()
                     ->groupBy('shared_plan_id');
@@ -466,8 +476,18 @@ class SharedPlanController extends Controller
             $linkService = app(SharedSubscribeLinkService::class);
 
             // 获取使用该套餐的用户列表
+            $sharedPlanSelect = ['id', 'subscription_url'];
+            if (Schema::hasColumn('v2_shared_plans', 'device_limit')) {
+                $sharedPlanSelect[] = 'device_limit';
+            }
+
             $slots = PlanSlot::where('shared_plan_id', $id)
-                ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url,device_limit')
+                ->with([
+                    'user:id,email,created_at',
+                    'sharedPlan' => function ($query) use ($sharedPlanSelect) {
+                        $query->select($sharedPlanSelect);
+                    }
+                ])
                 ->orderBy('allocated_at', 'desc')
                 ->get();
 

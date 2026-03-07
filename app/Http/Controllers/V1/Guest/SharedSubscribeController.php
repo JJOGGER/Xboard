@@ -9,6 +9,7 @@ use App\Services\SharedSubscribeLinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class SharedSubscribeController extends Controller
 {
@@ -70,7 +71,14 @@ class SharedSubscribeController extends Controller
             ]);
         }
 
-        $plan = SharedPlan::query()->whereKey($planId)->first();
+        $planQuery = SharedPlan::query()->whereKey($planId);
+        if (Schema::hasColumn('v2_shared_plans', 'device_limit')) {
+            $planQuery->select(['id', 'device_limit']);
+        } else {
+            $planQuery->select(['id']);
+        }
+
+        $plan = $planQuery->first();
         if (!$plan) {
             return $this->fail([404, '套餐不存在'], null, [
                 'reason' => 'plan_not_found',
