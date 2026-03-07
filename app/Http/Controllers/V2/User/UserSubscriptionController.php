@@ -243,7 +243,7 @@ class UserSubscriptionController extends Controller
                     'slot_id' => $slot->id,
                     'subscription_token' => $slot->subscription_token,
                     'subscription_url' => $slot->getSubscriptionUrl(),
-                    'shared_subscribe_link' => app(SharedSubscribeLinkService::class)->buildDeepLink([
+                    'subscription_url_offline' => app(SharedSubscribeLinkService::class)->buildToken([
                         'subscribe_url' => $slot->getSubscriptionUrl(),
                         'user_id' => $user->id,
                         'email' => (string) ($user->email ?? ''),
@@ -476,13 +476,14 @@ class UserSubscriptionController extends Controller
                         'nodes_count' => $plan->nodes_count,
                         // 不显示流量信息，因为是共享的
                     ],
-                    'subscription_url' => $linkService->buildDeepLink([
+                    'subscription_url' => $subscriptionContentUrl,
+                    'subscription_content_url' => $subscriptionContentUrl,
+                    'subscription_url_offline' => $linkService->buildToken([
                         'subscribe_url' => $subscriptionContentUrl,
                         'user_id' => $user->id,
                         'email' => (string) ($user->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
                     ]),
-                    'subscription_content_url' => $subscriptionContentUrl,
                 ];
             });
 

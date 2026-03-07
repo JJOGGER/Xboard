@@ -365,7 +365,7 @@ class SharedPlanController extends Controller
 
                         try {
                             $subscriptionContentUrl = $slot->getSubscriptionUrl();
-                            $sharedSubscribeLink = $linkService->buildDeepLink([
+                            $sharedSubscribeLink = $linkService->buildToken([
                                 'subscribe_url' => $subscriptionContentUrl,
                                 'user_id' => $slot->user_id,
                                 'email' => (string) ($slot->user?->email ?? ''),
@@ -469,7 +469,7 @@ class SharedPlanController extends Controller
 
                 try {
                     $subscriptionContentUrl = $slot->getSubscriptionUrl();
-                    $sharedSubscribeLink = $linkService->buildDeepLink([
+                    $sharedSubscribeLink = $linkService->buildToken([
                         'subscribe_url' => $subscriptionContentUrl,
                         'user_id' => $slot->user_id,
                         'email' => (string) ($slot->user?->email ?? ''),

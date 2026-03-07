@@ -163,13 +163,12 @@ class SharedPlanController extends Controller
                         'name' => $plan->group->name,
                     ] : null,
                 ],
-                'subscription_url' => $linkService->buildDeepLink([
-    'subscribe_url' => $subscriptionContentUrl,
-    'user_id' => $user->id,
-    'email' => (string) ($user->email ?? ''),
-    'expire_at' => $activeSlot->expire_at ? $activeSlot->expire_at->getTimestamp() : null,
-]),
-'subscription_content_url' => $subscriptionContentUrl,
+                'subscription_url' => $linkService->buildToken([
+                    'subscribe_url' => $subscriptionContentUrl,
+                    'user_id' => $user->id,
+                    'email' => (string) ($user->email ?? ''),
+                    'expire_at' => $activeSlot->expire_at ? $activeSlot->expire_at->getTimestamp() : null,
+                ]),
             ]];
 
             return $this->success([

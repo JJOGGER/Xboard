@@ -22,12 +22,21 @@ class SharedSubscribeLinkService
     }
 
     /**
-     * Build share link:
+     * Build raw token:
+     *   v1.{iv}.{ciphertext}.{tag}.{sig}
+     */
+    public function buildToken(array $payload): string
+    {
+        return $this->encode($payload);
+    }
+
+    /**
+     * Build share deep link (legacy/compat):
      *   xboard://shared-subscribe?t={token}
      */
     public function buildDeepLink(array $payload): string
     {
-        $token = $this->encode($payload);
+        $token = $this->buildToken($payload);
         return 'xboard://shared-subscribe?t=' . rawurlencode($token);
     }
 
