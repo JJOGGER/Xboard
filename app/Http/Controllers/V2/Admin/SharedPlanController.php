@@ -321,7 +321,7 @@ class SharedPlanController extends Controller
             $slotsByPlanId = collect();
             if ($planIds->isNotEmpty()) {
                 $slotsByPlanId = PlanSlot::whereIn('shared_plan_id', $planIds)
-                    ->with('user:id,email,created_at')
+                    ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url')
                     ->orderBy('allocated_at', 'desc')
                     ->get()
                     ->groupBy('shared_plan_id');
@@ -365,8 +365,9 @@ class SharedPlanController extends Controller
 
                         try {
                             $subscriptionContentUrl = $slot->getSubscriptionUrl();
+                            $thirdPartySubscribeUrl = (string) ($slot->sharedPlan?->subscription_url ?? '');
                             $sharedSubscribeLink = $linkService->buildToken([
-                                'subscribe_url' => $subscriptionContentUrl,
+                                'subscribe_url' => $thirdPartySubscribeUrl !== '' ? $thirdPartySubscribeUrl : $subscriptionContentUrl,
                                 'user_id' => $slot->user_id,
                                 'email' => (string) ($slot->user?->email ?? ''),
                                 'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
@@ -458,7 +459,7 @@ class SharedPlanController extends Controller
 
             // 获取使用该套餐的用户列表
             $slots = PlanSlot::where('shared_plan_id', $id)
-                ->with('user:id,email,created_at')
+                ->with('user:id,email,created_at', 'sharedPlan:id,subscription_url')
                 ->orderBy('allocated_at', 'desc')
                 ->get();
 
@@ -469,8 +470,9 @@ class SharedPlanController extends Controller
 
                 try {
                     $subscriptionContentUrl = $slot->getSubscriptionUrl();
+                    $thirdPartySubscribeUrl = (string) ($slot->sharedPlan?->subscription_url ?? '');
                     $sharedSubscribeLink = $linkService->buildToken([
-                        'subscribe_url' => $subscriptionContentUrl,
+                        'subscribe_url' => $thirdPartySubscribeUrl !== '' ? $thirdPartySubscribeUrl : $subscriptionContentUrl,
                         'user_id' => $slot->user_id,
                         'email' => (string) ($slot->user?->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,

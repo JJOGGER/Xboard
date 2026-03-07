@@ -244,7 +244,7 @@ class UserSubscriptionController extends Controller
                     'subscription_token' => $slot->subscription_token,
                     'subscription_url' => $slot->getSubscriptionUrl(),
                     'subscription_url_offline' => app(SharedSubscribeLinkService::class)->buildToken([
-                        'subscribe_url' => $slot->getSubscriptionUrl(),
+                        'subscribe_url' => $plan->subscription_url,
                         'user_id' => $user->id,
                         'email' => (string) ($user->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
@@ -463,23 +463,19 @@ class UserSubscriptionController extends Controller
                 $subscriptionContentUrl = $slot->getSubscriptionUrl();
                 
                 return [
-                    'slot' => [
-                        'id' => $slot->id,
-                        'status' => $slot->status,
-                        'allocated_at' => $slot->allocated_at->toIso8601String(),
-                        'expire_at' => $slot->expire_at->toIso8601String(),
-                    ],
-                    'plan' => [
-                        'id' => $plan->id,
-                        'name' => $plan->name,
-                        'subscription_format' => $plan->subscription_format,
-                        'nodes_count' => $plan->nodes_count,
-                        // 不显示流量信息，因为是共享的
-                    ],
+                    'slot_id' => $slot->id,
+                    'subscription_token' => $slot->subscription_token,
+                    'status' => $slot->status,
+                    'allocated_at' => $slot->allocated_at?->toIso8601String(),
+                    'expire_at' => $slot->expire_at?->toIso8601String(),
+                    'released_at' => $slot->released_at?->toIso8601String(),
+                    'shared_plan_id' => $slot->shared_plan_id,
+                    'shared_plan_name' => $slot->sharedPlan?->name,
+                    'shared_plan_description' => $slot->sharedPlan?->description,
                     'subscription_url' => $subscriptionContentUrl,
                     'subscription_content_url' => $subscriptionContentUrl,
                     'subscription_url_offline' => $linkService->buildToken([
-                        'subscribe_url' => $subscriptionContentUrl,
+                        'subscribe_url' => (string) ($slot->sharedPlan?->subscription_url ?? $subscriptionContentUrl),
                         'user_id' => $user->id,
                         'email' => (string) ($user->email ?? ''),
                         'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
