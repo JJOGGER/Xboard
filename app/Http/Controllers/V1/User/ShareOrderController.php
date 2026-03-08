@@ -14,6 +14,8 @@ use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * 共享套餐订单控制器
@@ -29,63 +31,84 @@ class ShareOrderController extends Controller
      */
     public function save(Request $request)
     {
-        $request->validate([
-            'shared_plan_id' => 'required|integer|exists:v2_shared_plans,id',
-            'period' => 'required|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly',
-            'coupon_code' => 'nullable|string',
-        ]);
-
-        $user = User::findOrFail($request->user()->id);
-        $userService = app(UserService::class);
-
-        // 检查是否有未完成的订单
-        // 仅检查共享套餐相关的未完成订单，避免被传统套餐订单阻塞
-        $pendingOrder = Order::where('user_id', $user->id)
-            ->whereIn('status', [0, 1]) // 待支付或处理中
-            ->where(function ($query) {
-                $query->where('plan_type', 'shared')
-                    ->orWhereNotNull('shared_plan_id');
-            })
-            ->orderBy('created_at', 'desc')
-            ->first();
-            
-        if ($pendingOrder) {
-            Log::info('Found pending shared order', [
-                'user_id' => $user->id,
-                'trade_no' => $pendingOrder->trade_no,
-                'status' => $pendingOrder->status,
-                'created_at' => $pendingOrder->created_at,
+        try {
+            $request->validate([
+                'shared_plan_id' => 'required|integer|exists:v2_shared_plans,id',
+                'period' => 'required|string|in:monthly,quarterly,half_yearly,yearly,two_yearly,three_yearly',
+                'coupon_code' => 'nullable|string',
             ]);
-            
-            return $this->fail(
-                [400, __('You have an unpaid or pending order, please try again later or cancel it')],
-                [
-                    'has_pending_order' => true,
-                    'pending_order' => [
-                        'trade_no' => $pendingOrder->trade_no,
-                        'total_amount' => $pendingOrder->total_amount,
-                        'created_at' => $pendingOrder->created_at,
-                    ]
-                ],
-                null
+
+            $user = User::findOrFail($request->user()->id);
+            $userService = app(UserService::class);
+
+            // 检查是否有未完成的订单
+            // 仅检查共享套餐相关的未完成订单，避免被传统套餐订单阻塞
+            $pendingOrder = Order::where('user_id', $user->id)
+                ->whereIn('status', [0, 1]) // 待支付或处理中
+                ->where(function ($query) {
+                    $query->where('plan_type', 'shared')
+                        ->orWhereNotNull('shared_plan_id');
+                })
+                ->orderBy('created_at', 'desc')
+                ->first();
+                
+            if ($pendingOrder) {
+                Log::info('Found pending shared order', [
+                    'user_id' => $user->id,
+                    'trade_no' => $pendingOrder->trade_no,
+                    'status' => $pendingOrder->status,
+                    'created_at' => $pendingOrder->created_at,
+                ]);
+                
+                return $this->fail(
+                    [400, __('You have an unpaid or pending order, please try again later or cancel it')],
+                    [
+                        'has_pending_order' => true,
+                        'pending_order' => [
+                            'trade_no' => $pendingOrder->trade_no,
+                            'total_amount' => $pendingOrder->total_amount,
+                            'created_at' => $pendingOrder->created_at,
+                        ]
+                    ],
+                    null
+                );
+            }
+
+            // 查找共享套餐
+            $sharedPlan = SharedPlan::where('id', $request->input('shared_plan_id'))
+                ->where('is_visible', true)
+                ->where('sync_status', SharedPlan::SYNC_STATUS_ACTIVE)
+                ->firstOrFail();
+
+            $period = $request->input('period');
+
+            $order = ShareOrderService::createFromRequest(
+                $user,
+                $sharedPlan,
+                $period,
+                $request->input('coupon_code')
             );
+            return $this->success($order->trade_no);
+        } catch (ApiException $e) {
+            $statusCode = (int) $e->getCode();
+            if ($statusCode < 100) {
+                $statusCode = 400;
+            }
+            return $this->fail([$statusCode, $e->getMessage()], null, $e->errors());
+        } catch (Throwable $e) {
+            $errorId = (string) Str::uuid();
+            Log::error('Failed to create shared plan order', [
+                'error_id' => $errorId,
+                'user_id' => $request->user()->id ?? null,
+                'shared_plan_id' => $request->input('shared_plan_id'),
+                'period' => $request->input('period'),
+                'error' => $e->getMessage(),
+            ]);
+            return $this->fail([500, __('Failed to create order')], null, [
+                'error_id' => $errorId,
+                'error_message' => $e->getMessage(),
+            ]);
         }
-
-        // 查找共享套餐
-        $sharedPlan = SharedPlan::where('id', $request->input('shared_plan_id'))
-            ->where('is_visible', true)
-            ->where('sync_status', SharedPlan::SYNC_STATUS_ACTIVE)
-            ->firstOrFail();
-
-        $period = $request->input('period');
-
-        $order = ShareOrderService::createFromRequest(
-            $user,
-            $sharedPlan,
-            $period,
-            $request->input('coupon_code')
-        );
-        return $this->success($order->trade_no);
     }
 
     /**
