@@ -3,6 +3,7 @@
 namespace App\Services\Share;
 
 use App\Exceptions\ApiException;
+use App\Helpers\Helper;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\SharedPlan;
@@ -11,7 +12,6 @@ use App\Services\CouponService;
 use App\Services\PaymentService;
 use App\Services\SubscriptionImportService;
 use App\Services\UserService;
-use App\Utils\Helper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -254,9 +254,11 @@ class ShareOrderService
         try {
             $this->activateSubscription();
         } catch (\Throwable $e) {
+            $errorId = (string) \Illuminate\Support\Str::uuid();
             Log::error('Failed to activate shared subscription after payment', [
                 'order_id' => $order->id,
                 'trade_no' => $order->trade_no,
+                'error_id' => $errorId,
                 'error' => $e->getMessage(),
             ]);
 
@@ -274,11 +276,15 @@ class ShareOrderService
                 Log::warning('Failed to revert shared order after activation failure', [
                     'order_id' => $order->id,
                     'trade_no' => $order->trade_no,
+                    'error_id' => $errorId,
                     'error' => $revertError->getMessage(),
                 ]);
             }
 
-            return false;
+            throw new ApiException(__('Payment activation failed'), 400, [
+                'error_id' => $errorId,
+                'error_message' => $e->getMessage(),
+            ]);
         }
 
         return true;

@@ -134,7 +134,11 @@ class ShareOrderController extends Controller
                 'trade_no' => $tradeNo,
                 'error' => $e->getMessage(),
             ]);
-            return $this->fail([400, __('Payment failed: ') . $e->getMessage()]);
+            $errors = null;
+            if ($e instanceof ApiException) {
+                $errors = $e->errors();
+            }
+            return $this->fail([400, __('Payment failed: ') . $e->getMessage()], null, $errors);
         }
     }
 
