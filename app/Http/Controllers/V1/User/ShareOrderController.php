@@ -6,6 +6,7 @@ use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Models\SharedPlan;
 use App\Models\Order;
+use App\Models\PlanSlot;
 use App\Models\User;
 use App\Services\Share\ShareOrderService;
 use App\Services\UserService;
@@ -182,6 +183,18 @@ class ShareOrderController extends Controller
             })
             ->firstOrFail();
 
+        // Recover stuck PROCESSING shared orders so user can retry/cancel.
+        // This can happen when payment succeeded but activateSubscription failed before we added rollback.
+        if ($order->status === Order::STATUS_PROCESSING) {
+            $hasSlot = PlanSlot::where('order_id', $order->id)->exists();
+            if (!$hasSlot) {
+                $order->status = Order::STATUS_PENDING;
+                $order->paid_at = null;
+                $order->callback_no = null;
+                $order->save();
+            }
+        }
+
         $sharedPlan = $order->sharedPlan;
         $transferEnableGb = null;
         if ($sharedPlan && $sharedPlan->total_traffic !== null) {
@@ -275,8 +288,21 @@ class ShareOrderController extends Controller
             throw new ApiException(__('Order does not exist'));
         }
 
-        if ($order->status !== 0) {
-            throw new ApiException(__('Order cannot be cancelled'));
+        if ($order->status !== Order::STATUS_PENDING) {
+            // Allow cancelling stuck processing orders that never allocated a slot.
+            if ($order->status === Order::STATUS_PROCESSING) {
+                $hasSlot = PlanSlot::where('order_id', $order->id)->exists();
+                if (!$hasSlot) {
+                    $order->status = Order::STATUS_PENDING;
+                    $order->paid_at = null;
+                    $order->callback_no = null;
+                    $order->save();
+                }
+            }
+
+            if ($order->status !== Order::STATUS_PENDING) {
+                throw new ApiException(__('Order cannot be cancelled'));
+            }
         }
 
         try {
