@@ -131,6 +131,7 @@ class SharedPlanController extends Controller
 
             $plan = $activeSlot->sharedPlan;
             $subscriptionContentUrl = $activeSlot->getSubscriptionUrl();
+            $thirdPartySubscribeUrl = (string) ($plan?->subscription_url ?? '');
             $transferEnableGb = null;
             if ($plan && $plan->total_traffic !== null) {
                 $transferEnableGb = (int) floor(((int) $plan->total_traffic) / 1024 / 1024 / 1024);
@@ -164,7 +165,7 @@ class SharedPlanController extends Controller
                     ] : null,
                 ],
                 'subscription_url' => $linkService->buildToken([
-                    'subscribe_url' => $subscriptionContentUrl,
+                    'subscribe_url' => $thirdPartySubscribeUrl !== '' ? $thirdPartySubscribeUrl : $subscriptionContentUrl,
                     'shared_plan_id' => (int) $activeSlot->shared_plan_id,
                     'slot_id' => (int) $activeSlot->id,
                     'user_id' => $user->id,
