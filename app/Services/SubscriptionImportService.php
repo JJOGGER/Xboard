@@ -519,21 +519,16 @@ class SubscriptionImportService
                 throw new \Exception("Shared plan not found");
             }
 
-            // 检查是否有可用slot
-            if (!$plan->hasAvailableSlots()) {
-                throw new \Exception("No available slots for this plan");
-            }
-
-            // 检查用户是否已经购买过此套餐
+            // 由于 v2_plan_slots.uk_plan_user (shared_plan_id,user_id) 为唯一索引，
+            // 这里必须复用已有记录（哪怕是 expired/cancelled），否则会触发 Duplicate entry。
             $existingSlot = PlanSlot::where('shared_plan_id', $planId)
                 ->where('user_id', $userId)
-                ->where('status', PlanSlot::STATUS_ACTIVE)
-                ->where('expire_at', '>', now())
+                ->lockForUpdate()
                 ->first();
 
             if ($existingSlot) {
-                // Treat repurchase as renewal: extend current slot expiration.
-                // This allows users to renew the same shared plan without allocating a new slot.
+                $wasActive = ($existingSlot->status === PlanSlot::STATUS_ACTIVE)
+                    && ($existingSlot->expire_at && $existingSlot->expire_at->isFuture());
 
                 // If no duration specified, infer from pricing tiers.
                 if ($durationDays === null) {
@@ -545,6 +540,19 @@ class SubscriptionImportService
                     $firstTier = reset($pricingTiers);
                     $durationDays = $firstTier['period']['days'];
                 }
+
+                // 如果是从非活跃状态重开，会重新占用一个 slot，需要检查容量并计数 +1。
+                if (!$wasActive) {
+                    if (!$plan->hasAvailableSlots()) {
+                        throw new \Exception("No available slots for this plan");
+                    }
+                }
+
+                // Rotate token so the user always gets a fresh per-slot subscribe token.
+                $existingSlot->subscription_token = PlanSlot::generateUniqueToken();
+                $existingSlot->allocated_at = now();
+                $existingSlot->released_at = null;
+                $existingSlot->status = PlanSlot::STATUS_ACTIVE;
 
                 if ($durationDays > 0) {
                     $base = $existingSlot->expire_at && $existingSlot->expire_at->isFuture()
@@ -560,7 +568,12 @@ class SubscriptionImportService
                 $existingSlot->order_id = $orderId;
                 $existingSlot->save();
 
-                Log::info('Renewed existing slot', [
+                if (!$wasActive) {
+                    $plan->incrementUsedSlots();
+                    $plan->updateVisibility();
+                }
+
+                Log::info($wasActive ? 'Renewed existing slot' : 'Reactivated existing slot', [
                     'plan_id' => $planId,
                     'user_id' => $userId,
                     'slot_id' => $existingSlot->id,
@@ -591,6 +604,11 @@ class SubscriptionImportService
             $slot->order_id = $orderId;
             $slot->subscription_token = $token;
             $slot->allocated_at = now();
+
+            // 检查是否有可用slot（仅当需要创建新记录时）
+            if (!$plan->hasAvailableSlots()) {
+                throw new \Exception("No available slots for this plan");
+            }
             
             // 根据周期设置过期时间
             // 如果是一次性套餐（days = -1），则不设置过期时间
