@@ -54,7 +54,7 @@ class OrderController extends Controller
         $request->validate([
             'trade_no' => 'required|string',
         ]);
-        $order = Order::with(['payment', 'plan'])
+        $order = Order::with(['payment', 'plan', 'sharedPlan'])
             ->where('user_id', $request->user()->id)
             ->where('trade_no', $request->input('trade_no'))
             ->first();
@@ -62,7 +62,8 @@ class OrderController extends Controller
             return $this->fail([400, __('Order does not exist or has been paid')]);
         }
         $order['try_out_plan_id'] = (int) admin_setting('try_out_plan_id');
-        if (!$order->plan) {
+        $isSharedOrder = ($order->plan_type === 'shared') || !empty($order->shared_plan_id);
+        if (!$isSharedOrder && !$order->plan) {
             return $this->fail([400, __('Subscription plan does not exist')]);
         }
         if ($order->surplus_order_ids) {

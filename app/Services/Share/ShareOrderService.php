@@ -260,6 +260,24 @@ class ShareOrderService
                 'error' => $e->getMessage(),
             ]);
 
+            try {
+                // Revert order to pending so user can retry checkout.
+                // Otherwise it stays stuck in PROCESSING and the next checkout will report "Order does not exist or has been paid".
+                $order->refresh();
+                if ($order->status === Order::STATUS_PROCESSING) {
+                    $order->status = Order::STATUS_PENDING;
+                    $order->paid_at = null;
+                    $order->callback_no = null;
+                    $order->save();
+                }
+            } catch (\Throwable $revertError) {
+                Log::warning('Failed to revert shared order after activation failure', [
+                    'order_id' => $order->id,
+                    'trade_no' => $order->trade_no,
+                    'error' => $revertError->getMessage(),
+                ]);
+            }
+
             return false;
         }
 
