@@ -37,7 +37,7 @@
     <!-- Subscription Content -->
     <template v-else>
       <!-- Subscription Link Card -->
-      <n-card v-if="false" :title="t('subscription.subscriptionLink.title')">
+      <n-card v-if="!!effectiveSubscriptionUrl" :title="t('subscription.subscriptionLink.title')">
         <template #header-extra>
           <n-button
             text
@@ -49,7 +49,7 @@
         </template>
 
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          {{ t('subscription.subscriptionLink.description') }}
+          {{ hasSharedSubscription ? '复制下方加密 Token，在客户端导入即可使用。' : t('subscription.subscriptionLink.description') }}
         </p>
 
         <!-- Subscription URL -->
@@ -467,24 +467,40 @@ const getProtocolFromNode = (node: any): string => {
 };
 
 // Methods
-const copySubscriptionLink = () => {
-  const clipboard = new ClipboardJS('.n-button', {
-    text: () => effectiveSubscriptionUrl.value
-  })
-
-  clipboard.on('success', () => {
+const copySubscriptionLink = async () => {
+  const text = effectiveSubscriptionUrl.value
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
     copied.value = true
     message.success(t('subscription.subscriptionLink.copied'))
     setTimeout(() => {
       copied.value = false
     }, 2000)
-    clipboard.destroy()
-  })
+    return
+  } catch {
+    // fallback
+  }
 
-  clipboard.on('error', () => {
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.setAttribute('readonly', '')
+    textarea.style.position = 'fixed'
+    textarea.style.top = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+
+    copied.value = true
+    message.success(t('subscription.subscriptionLink.copied'))
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch {
     message.error('Failed to copy')
-    clipboard.destroy()
-  })
+  }
 }
 
 const generateQRCode = async () => {

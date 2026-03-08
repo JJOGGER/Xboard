@@ -82,6 +82,39 @@
             </div>
           </div>
 
+          <div v-if="showSharedTokenCard" class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-4">
+              订阅导入
+            </h2>
+
+            <div class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              复制下方加密 Token，在客户端导入即可使用。
+            </div>
+
+            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="font-mono text-xs text-slate-800 dark:text-slate-200 break-all leading-relaxed">
+                  {{ sharedTokenDisplay }}
+                </div>
+                <button
+                  @click="copySharedToken"
+                  class="shrink-0 inline-flex items-center px-4 py-2 rounded-lg font-semibold bg-primary-600 hover:bg-primary-700 text-white transition-colors"
+                >
+                  复制 Token
+                </button>
+              </div>
+
+              <div class="mt-3">
+                <button
+                  @click="sharedTokenExpanded = !sharedTokenExpanded"
+                  class="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                >
+                  {{ sharedTokenExpanded ? '收起' : '展开完整 Token' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div v-if="orderInfo.status === 0" class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
             <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-6">
               {{ t('checkout.payment.title') }}
@@ -223,7 +256,53 @@ const pollingMessage = ref('');
 let pollingTimer: any = null;
 let pollingAttempts = 0;
 
+const sharedTokenExpanded = ref(false);
+
 const planName = computed(() => orderInfo.value?.shared_plan?.name || orderInfo.value?.plan?.name || '-');
+
+const sharedToken = computed(() => {
+  const info: any = orderInfo.value;
+  const token = info?.subscription_url;
+  return typeof token === 'string' ? token.trim() : '';
+});
+
+const showSharedTokenCard = computed(() => {
+  return (orderInfo.value?.plan_type === 'shared') && sharedToken.value.length > 0;
+});
+
+const sharedTokenDisplay = computed(() => {
+  if (sharedTokenExpanded.value) return sharedToken.value;
+  const token = sharedToken.value;
+  if (!token) return '';
+  if (token.length <= 32) return token;
+  return `${token.slice(0, 16)}...${token.slice(-12)}`;
+});
+
+async function copySharedToken() {
+  const token = sharedToken.value;
+  if (!token) return;
+  try {
+    await navigator.clipboard.writeText(token);
+    message.success('已复制');
+    return;
+  } catch {
+    // fallback
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = token;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    message.success('已复制');
+  } catch (e: any) {
+    message.error(e?.message || '复制失败');
+  }
+}
 
 const displayPeriodKey = computed(() => {
   const period = orderInfo.value?.period;

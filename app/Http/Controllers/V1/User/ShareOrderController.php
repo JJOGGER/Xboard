@@ -8,6 +8,7 @@ use App\Models\SharedPlan;
 use App\Models\Order;
 use App\Models\PlanSlot;
 use App\Models\User;
+use App\Services\SharedSubscribeLinkService;
 use App\Services\Share\ShareOrderService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
@@ -229,6 +230,30 @@ class ShareOrderController extends Controller
             }
         }
 
+        $subscriptionUrl = null;
+        try {
+            $slot = PlanSlot::where('order_id', $order->id)->first();
+            if (!$slot && $sharedPlan) {
+                $slot = PlanSlot::where('shared_plan_id', $sharedPlan->id)
+                    ->where('user_id', $order->user_id)
+                    ->where('status', PlanSlot::STATUS_ACTIVE)
+                    ->where('expire_at', '>', now())
+                    ->first();
+            }
+            if ($slot) {
+                $linkService = app(SharedSubscribeLinkService::class);
+                $subscriptionUrl = $linkService->buildToken([
+                    'subscribe_url' => $slot->getSubscriptionUrl(),
+                    'shared_plan_id' => (int) $slot->shared_plan_id,
+                    'slot_id' => (int) $slot->id,
+                    'user_id' => (int) $order->user_id,
+                    'email' => (string) ($request->user()->email ?? ''),
+                    'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
+                ]);
+            }
+        } catch (\Throwable $e) {
+        }
+
         return $this->success([
             // Fields required by MaClash OrderDetailResponse
             'trade_no' => $order->trade_no,
@@ -267,6 +292,8 @@ class ShareOrderController extends Controller
                 'name' => $sharedPlan->name,
                 'subscription_format' => $sharedPlan->subscription_format,
             ] : null,
+
+            'subscription_url' => $subscriptionUrl,
         ]);
     }
 
