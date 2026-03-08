@@ -528,10 +528,46 @@ class SubscriptionImportService
             $existingSlot = PlanSlot::where('shared_plan_id', $planId)
                 ->where('user_id', $userId)
                 ->where('status', PlanSlot::STATUS_ACTIVE)
+                ->where('expire_at', '>', now())
                 ->first();
 
             if ($existingSlot) {
-                throw new \Exception("User already has an active slot for this plan");
+                // Treat repurchase as renewal: extend current slot expiration.
+                // This allows users to renew the same shared plan without allocating a new slot.
+
+                // If no duration specified, infer from pricing tiers.
+                if ($durationDays === null) {
+                    $pricingTiers = $plan->getActivePricingTiers();
+                    if (empty($pricingTiers)) {
+                        throw new \Exception("No pricing tiers available for this plan");
+                    }
+
+                    $firstTier = reset($pricingTiers);
+                    $durationDays = $firstTier['period']['days'];
+                }
+
+                if ($durationDays > 0) {
+                    $base = $existingSlot->expire_at && $existingSlot->expire_at->isFuture()
+                        ? $existingSlot->expire_at
+                        : now();
+                    $existingSlot->expire_at = $base->copy()->addDays($durationDays);
+                } else {
+                    // Permanent
+                    $existingSlot->expire_at = now()->addYears(50);
+                }
+
+                // Attach latest order id for audit/reference.
+                $existingSlot->order_id = $orderId;
+                $existingSlot->save();
+
+                Log::info('Renewed existing slot', [
+                    'plan_id' => $planId,
+                    'user_id' => $userId,
+                    'slot_id' => $existingSlot->id,
+                    'duration_days' => $durationDays,
+                ]);
+
+                return $existingSlot;
             }
 
             // 如果没有提供duration，从套餐的prices中获取第一个周期的天数
