@@ -1074,6 +1074,7 @@ export default {
 
     subscribedUsers: '已订阅用户',
     subscribedUsers2: '已订阅用户',
+    onlineDevices: '在线设备',
     copyUserLink: '复制共享链接',
     copySuccess: '复制成功',
     linkNotReady: '共享链接暂不可用',

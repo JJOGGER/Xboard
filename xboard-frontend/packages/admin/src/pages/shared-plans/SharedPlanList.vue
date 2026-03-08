@@ -226,6 +226,17 @@
                   {{ formatDate(row.expire_at) }}
                 </template>
               </el-table-column>
+              <el-table-column :label="t('sharedPlans.onlineDevices')" min-width="120" align="center">
+                <template #default="{ row }">
+                  <el-tag 
+                    :type="row.over_limit ? 'danger' : 'success'" 
+                    size="small"
+                  >
+                    {{ row.online_devices_count || 0 }}
+                  </el-tag>
+                  <span v-if="row.over_limit" class="over-limit-indicator">⚠️</span>
+                </template>
+              </el-table-column>
               <el-table-column :label="t('common.status')" min-width="140">
                 <template #default="{ row }">
                   <el-tag v-if="row.error" type="danger" size="small" :title="row.error">{{ t('common.error') }}</el-tag>
@@ -1422,6 +1433,11 @@ onMounted(() => {
   font-size: 12px;
   color: #909399;
   margin-top: 4px;
+}
+
+.over-limit-indicator {
+  margin-left: 4px;
+  font-size: 12px;
 }
 
 @media (max-width: 768px) {

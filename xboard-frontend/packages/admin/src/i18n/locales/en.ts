@@ -932,6 +932,7 @@ export default {
 
     subscribedUsers: 'Subscribed Users',
     subscribedUsers2: 'Subscribed Users',
+    onlineDevices: 'Online Devices',
     copyUserLink: 'Copy Shared Link',
     copySuccess: 'Copied',
     linkNotReady: 'Shared link is not available yet',
