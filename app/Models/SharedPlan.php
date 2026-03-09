@@ -256,7 +256,7 @@ class SharedPlan extends Model
      */
     public function hasAvailableSlots(): bool
     {
-        return $this->used_slots < $this->max_slots;
+        return $this->getActiveUsedSlotsCount() < $this->max_slots;
     }
 
     /**
@@ -264,7 +264,22 @@ class SharedPlan extends Model
      */
     public function getAvailableSlotsCount(): int
     {
-        return max(0, $this->max_slots - $this->used_slots);
+        return max(0, $this->max_slots - $this->getActiveUsedSlotsCount());
+    }
+
+    /**
+     * 获取当前活跃使用的 slot 数（基于 PlanSlot 实际记录）
+     */
+    public function getActiveUsedSlotsCount(): int
+    {
+        try {
+            return (int) PlanSlot::query()
+                ->active()
+                ->where('shared_plan_id', $this->id)
+                ->count();
+        } catch (\Throwable $e) {
+            return (int) ($this->used_slots ?? 0);
+        }
     }
 
     /**

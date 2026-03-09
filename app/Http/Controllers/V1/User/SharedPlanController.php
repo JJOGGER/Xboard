@@ -72,7 +72,7 @@ class SharedPlanController extends Controller
                     // For MaClash UI compatibility: show GB, and use Integer.MAX_VALUE as "unlimited" sentinel.
                     'transfer_enable' => $transferEnableGb === null ? self::MOBILE_UNLIMITED_TRANSFER_GB : $transferEnableGb,
                     'max_slots' => $plan->max_slots,
-                    'used_slots' => $plan->used_slots,
+                    'used_slots' => method_exists($plan, 'getActiveUsedSlotsCount') ? $plan->getActiveUsedSlotsCount() : $plan->used_slots,
                     'available_slots' => $plan->getAvailableSlotsCount(),
                     // Optional traffic fields for Mine page consistency
                     'total_traffic' => $plan->total_traffic,

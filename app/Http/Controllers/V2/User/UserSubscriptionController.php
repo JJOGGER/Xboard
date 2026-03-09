@@ -87,7 +87,7 @@ class UserSubscriptionController extends Controller
                     'nodes_count' => $plan->nodes_count,
                     'pricing_tiers' => $plan->getActivePricingTiers(),
                     'max_slots' => $plan->max_slots,
-                    'used_slots' => $plan->used_slots,
+                    'used_slots' => method_exists($plan, 'getActiveUsedSlotsCount') ? $plan->getActiveUsedSlotsCount() : $plan->used_slots,
                     'available_slots' => $plan->getAvailableSlotsCount(),
                     'total_traffic' => $plan->total_traffic,
                     'used_traffic' => $plan->used_traffic,

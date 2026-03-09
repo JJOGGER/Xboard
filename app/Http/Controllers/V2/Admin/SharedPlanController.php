@@ -229,7 +229,7 @@ class SharedPlanController extends Controller
                 'subscription_format' => $plan->subscription_format,
                 'nodes_count' => $plan->nodes_count,
                 'max_slots' => $plan->max_slots,
-                'used_slots' => $plan->used_slots,
+                'used_slots' => method_exists($plan, 'getActiveUsedSlotsCount') ? $plan->getActiveUsedSlotsCount() : $plan->used_slots,
                 'group_id' => $plan->group_id,
                 'group_ids' => $plan->group_ids ?? [],
                 'group' => $plan->group ? [
@@ -359,7 +359,7 @@ class SharedPlanController extends Controller
                     'subscription_format' => $plan->subscription_format,
                     'nodes_count' => $plan->nodes_count,
                     'max_slots' => $plan->max_slots,
-                    'used_slots' => $plan->used_slots,
+                    'used_slots' => method_exists($plan, 'getActiveUsedSlotsCount') ? $plan->getActiveUsedSlotsCount() : $plan->used_slots,
                     'available_slots' => $plan->getAvailableSlotsCount(),
                     'is_visible' => $plan->is_visible,
                     'sync_status' => $plan->sync_status,
@@ -548,7 +548,7 @@ class SharedPlanController extends Controller
                 'nodes_config' => $plan->nodes_config, // Include parsed nodes for admin view
                 'max_slots' => $plan->max_slots,
                 'device_limit' => $plan->device_limit,
-                'used_slots' => $plan->used_slots,
+                'used_slots' => method_exists($plan, 'getActiveUsedSlotsCount') ? $plan->getActiveUsedSlotsCount() : $plan->used_slots,
                 'available_slots' => $plan->getAvailableSlotsCount(),
                 'is_visible' => $plan->is_visible,
                 'sync_status' => $plan->sync_status,

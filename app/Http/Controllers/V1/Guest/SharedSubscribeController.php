@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1\Guest;
 use App\Http\Controllers\Controller;
 use App\Models\PlanSlot;
 use App\Models\SharedPlan;
+use App\Models\User;
 use App\Services\SharedSubscribeLinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,9 +74,9 @@ class SharedSubscribeController extends Controller
 
         $planQuery = SharedPlan::query()->whereKey($planId);
         if (Schema::hasColumn('v2_shared_plans', 'device_limit')) {
-            $planQuery->select(['id', 'device_limit']);
+            $planQuery->select(['id', 'device_limit', 'subscription_url']);
         } else {
-            $planQuery->select(['id']);
+            $planQuery->select(['id', 'subscription_url']);
         }
 
         $plan = $planQuery->first();
@@ -124,12 +125,35 @@ class SharedSubscribeController extends Controller
         // Keep TTL refreshed
         Cache::put($cacheKey, $devices, now()->addSeconds(self::HEARTBEAT_TTL_SECONDS));
 
+        $refreshedToken = null;
+        try {
+            $slotUser = User::query()->select(['id', 'email'])->whereKey((int) $slot->user_id)->first();
+            $subscriptionContentUrl = method_exists($slot, 'getSubscriptionUrl') ? $slot->getSubscriptionUrl() : '';
+            $thirdPartySubscribeUrl = (string) ($plan->subscription_url ?? '');
+
+            $refreshedToken = app(SharedSubscribeLinkService::class)->buildToken([
+                'subscribe_url' => $thirdPartySubscribeUrl !== '' ? $thirdPartySubscribeUrl : $subscriptionContentUrl,
+                'shared_plan_id' => (int) $planId,
+                'slot_id' => (int) $slotId,
+                'user_id' => (int) ($slotUser?->id ?? 0),
+                'email' => (string) ($slotUser?->email ?? ''),
+                'expire_at' => $slot->expire_at ? $slot->expire_at->getTimestamp() : null,
+            ]);
+
+            if (is_string($refreshedToken) && $refreshedToken === $token) {
+                $refreshedToken = null;
+            }
+        } catch (\Throwable $e) {
+            $refreshedToken = null;
+        }
+
         return $this->success([
             'status' => 'ok',
             'device_limit' => $deviceLimit,
             'online_count' => $onlineCount,
             'slot_id' => $slotId,
             'shared_plan_id' => $planId,
+            'token' => $refreshedToken,
         ]);
     }
 }
