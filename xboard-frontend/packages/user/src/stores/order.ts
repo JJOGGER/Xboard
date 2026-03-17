@@ -231,13 +231,19 @@ export const useOrderStore = defineStore('order', () => {
       
       // 如果明确指定了订单类型为共享套餐，使用专用接口
       if (orderType === 'shared') {
-        const response = await orderApi.checkoutShareOrder(checkoutData);
-        return response.data;
+        const response: any = await orderApi.checkoutShareOrder(checkoutData);
+        if (response && typeof response === 'object' && 'type' in response && 'data' in response) {
+          return response;
+        }
+        return response?.data;
       }
       
       // 否则使用 V2 统一接口（支持所有类型）
-      const response = await orderApi.checkout(checkoutData);
-      return response.data;
+      const response: any = await orderApi.checkout(checkoutData);
+      if (response && typeof response === 'object' && 'type' in response && 'data' in response) {
+        return response;
+      }
+      return response?.data;
     } catch (err) {
       error.value = 'Failed to checkout';
       console.error('Failed to checkout:', err);
